@@ -10,6 +10,9 @@ public class BoardUtil {
   public static final boolean[] SEVENTH_COLUMN = initColumn(6);
   public static final boolean[] EIGHTH_COLUMN = initColumn(7);
 
+  public static final boolean[] SECOND_ROW = initRow(1);
+  public static final boolean[] SEVENTH_ROW = initRow(6);
+
   public static final int NUM_TILES = 64;
   public static final int NUM_TILES_PER_ROW = 8;
 
@@ -26,6 +29,22 @@ public class BoardUtil {
       columnNumber += NUM_TILES_PER_ROW;
     } while (columnNumber < NUM_TILES);
     return column;
+  }
+
+  /**
+   * 지정된 행의 모든 위치를 표시하는 배열을 초기화합니다.
+   *
+   * @param rowNumber 표시할 행.
+   * @return 지정된 행의 위치에 true가 있는 배열.
+   */
+  private static boolean[] initRow(int rowNumber) {
+    final boolean[] row = new boolean[NUM_TILES];
+    int startIndex = rowNumber * NUM_TILES_PER_ROW;
+    int endIndex = startIndex + NUM_TILES_PER_ROW;
+    for (int i = startIndex; i < endIndex; i++) {
+      row[i] = true;
+    }
+    return row;
   }
 
   /**
