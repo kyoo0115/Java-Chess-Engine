@@ -50,13 +50,14 @@ public class Pawn extends Piece {
       int candidateDestinationCoordinate =
           this.piecePosition + (this.pieceAlliance.getDirection() * currentCandidateOffset);
 
+      // 후보 좌표가 유효한지 확인
       if (!isValidCoordinate(candidateDestinationCoordinate)) {
         continue;
       }
 
       // 한 칸 앞으로 이동
       if (currentCandidateOffset == 8 && !board.getTile(candidateDestinationCoordinate).isTileOccupied()) {
-        //todo pawn promotion
+        // TODO: 폰 프로모션 처리
         legalMoves.add(new MajorMove(board, this, candidateDestinationCoordinate));
       }
       // 두 칸 앞으로 이동
@@ -69,18 +70,22 @@ public class Pawn extends Piece {
             !board.getTile(candidateDestinationCoordinate).isTileOccupied()) {
           legalMoves.add(new MajorMove(board, this, candidateDestinationCoordinate));
         }
-      } else if (currentCandidateOffset == 7 &&
-          !((EIGHTH_COLUMN[this.piecePosition] && this.pieceAlliance.isWhite() ||
-              (FIRST_COLUMN[this.piecePosition] && this.pieceAlliance.isBlack())))) {
+      }
+      // 대각선 왼쪽 이동 (공격)
+      else if (currentCandidateOffset == 7 &&
+          !((EIGHTH_COLUMN[this.piecePosition] && this.pieceAlliance.isWhite()) ||
+              (FIRST_COLUMN[this.piecePosition] && this.pieceAlliance.isBlack()))) {
         if (board.getTile(candidateDestinationCoordinate).isTileOccupied()) {
           final Piece pieceOnCandidate = board.getTile(candidateDestinationCoordinate).getPiece();
           if (this.pieceAlliance != pieceOnCandidate.getPieceAlliance()) {
             legalMoves.add(new MajorMove(board, this, candidateDestinationCoordinate));
           }
         }
-      } else if (currentCandidateOffset == 9 &&
-          !((FIRST_COLUMN[this.piecePosition] && this.pieceAlliance.isWhite() ||
-              (EIGHTH_COLUMN[this.piecePosition] && this.pieceAlliance.isBlack())))) {
+      }
+      // 대각선 오른쪽 이동 (공격)
+      else if (currentCandidateOffset == 9 &&
+          !((FIRST_COLUMN[this.piecePosition] && this.pieceAlliance.isWhite()) ||
+              (EIGHTH_COLUMN[this.piecePosition] && this.pieceAlliance.isBlack()))) {
         if (board.getTile(candidateDestinationCoordinate).isTileOccupied()) {
           final Piece pieceOnCandidate = board.getTile(candidateDestinationCoordinate).getPiece();
           if (this.pieceAlliance != pieceOnCandidate.getPieceAlliance()) {
