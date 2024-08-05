@@ -73,7 +73,8 @@ public class Bishop extends Piece {
 
             // 목적지의 조각이 적군 조각인 경우 AttackMove를 추가합니다.
             if (this.pieceAlliance != pieceAlliance) {
-              legalMoves.add(new AttackMove(board, this, candidateDestinationCoordinate, pieceAtDestination));
+              legalMoves.add(
+                  new AttackMove(board, this, candidateDestinationCoordinate, pieceAtDestination));
             }
             // 비숍은 조각을 뛰어넘을 수 없으므로 루프를 종료합니다.
             break;
@@ -95,8 +96,10 @@ public class Bishop extends Piece {
    * @param candidateOffset 후보 이동 오프셋.
    * @return 첫 번째 열 배제에 의해 이동이 유효하지 않은 경우 true, 그렇지 않으면 false.
    */
-  private static boolean isFirstColumnExclusion(final int currentPosition, final int candidateOffset) {
-    return BoardUtil.FIRST_COLUMN[currentPosition] && (candidateOffset == -9 || candidateOffset == 7);
+  private static boolean isFirstColumnExclusion(final int currentPosition,
+      final int candidateOffset) {
+    return BoardUtil.FIRST_COLUMN[currentPosition] && (candidateOffset == -9
+        || candidateOffset == 7);
   }
 
   /**
@@ -106,7 +109,9 @@ public class Bishop extends Piece {
    * @param candidateOffset 후보 이동 오프셋.
    * @return 여덟 번째 열 배제에 의해 이동이 유효하지 않은 경우 true, 그렇지 않으면 false.
    */
-  private static boolean isEighthColumnExclusion(final int currentPosition, final int candidateOffset) {
-    return BoardUtil.EIGHTH_COLUMN[currentPosition] && (candidateOffset == -7 || candidateOffset == 9);
+  private static boolean isEighthColumnExclusion(final int currentPosition,
+      final int candidateOffset) {
+    return BoardUtil.EIGHTH_COLUMN[currentPosition] && (candidateOffset == -7
+        || candidateOffset == 9);
   }
 }

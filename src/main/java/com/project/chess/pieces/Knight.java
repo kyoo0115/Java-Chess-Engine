@@ -71,7 +71,8 @@ public class Knight extends Piece {
 
           // 목적지의 조각이 적군 조각인 경우 AttackMove를 추가합니다.
           if (this.pieceAlliance != pieceAlliance) {
-            legalMoves.add(new AttackMove(board, this, candidateDestinationCoordinate, pieceAtDestination));
+            legalMoves.add(
+                new AttackMove(board, this, candidateDestinationCoordinate, pieceAtDestination));
           }
         }
       }
@@ -88,7 +89,8 @@ public class Knight extends Piece {
    * @param candidateOffset 후보 이동 오프셋.
    * @return 첫 번째 열 배제에 의해 이동이 유효하지 않은 경우 true, 그렇지 않으면 false.
    */
-  private static boolean isFirstColumnExclusion(final int currentPosition, final int candidateOffset) {
+  private static boolean isFirstColumnExclusion(final int currentPosition,
+      final int candidateOffset) {
     return BoardUtil.FIRST_COLUMN[currentPosition] &&
         (candidateOffset == -17 || candidateOffset == -10 ||
             candidateOffset == 6 || candidateOffset == 15);
@@ -101,7 +103,8 @@ public class Knight extends Piece {
    * @param candidateOffset 후보 이동 오프셋.
    * @return 두 번째 열 배제에 의해 이동이 유효하지 않은 경우 true, 그렇지 않으면 false.
    */
-  private static boolean isSecondColumnExclusion(final int currentPosition, final int candidateOffset) {
+  private static boolean isSecondColumnExclusion(final int currentPosition,
+      final int candidateOffset) {
     return BoardUtil.SECOND_COLUMN[currentPosition] &&
         (candidateOffset == -10 || candidateOffset == 6);
   }
@@ -113,7 +116,8 @@ public class Knight extends Piece {
    * @param candidateOffset 후보 이동 오프셋.
    * @return 일곱 번째 열 배제에 의해 이동이 유효하지 않은 경우 true, 그렇지 않으면 false.
    */
-  private static boolean isSeventhColumnExclusion(final int currentPosition, final int candidateOffset) {
+  private static boolean isSeventhColumnExclusion(final int currentPosition,
+      final int candidateOffset) {
     return BoardUtil.SEVENTH_COLUMN[currentPosition] &&
         (candidateOffset == -6 || candidateOffset == 10);
   }
@@ -125,7 +129,8 @@ public class Knight extends Piece {
    * @param candidateOffset 후보 이동 오프셋.
    * @return 여덟 번째 열 배제에 의해 이동이 유효하지 않은 경우 true, 그렇지 않으면 false.
    */
-  private static boolean isEighthColumnExclusion(final int currentPosition, final int candidateOffset) {
+  private static boolean isEighthColumnExclusion(final int currentPosition,
+      final int candidateOffset) {
     return BoardUtil.EIGHTH_COLUMN[currentPosition] &&
         (candidateOffset == -15 || candidateOffset == -6 ||
             candidateOffset == 10 || candidateOffset == 17);

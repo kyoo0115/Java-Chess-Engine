@@ -30,7 +30,7 @@ public abstract class Tile {
    * Factory method to create a Tile.
    *
    * @param coordinate the coordinate of the tile.
-   * @param piece the piece on the tile, if any.
+   * @param piece      the piece on the tile, if any.
    * @return an OccupiedTile if a piece is provided, otherwise an EmptyTile.
    */
   public static Tile createTile(final int coordinate, final Piece piece) {
