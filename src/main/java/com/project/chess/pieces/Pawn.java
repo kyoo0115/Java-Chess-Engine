@@ -1,17 +1,16 @@
 package com.project.chess.pieces;
 
-import static com.project.util.BoardUtil.EIGHTH_COLUMN;
-import static com.project.util.BoardUtil.FIRST_COLUMN;
-import static com.project.util.BoardUtil.SECOND_ROW;
-import static com.project.util.BoardUtil.SEVENTH_ROW;
-import static com.project.util.BoardUtil.isValidCoordinate;
+import static com.project.chess.board.BoardUtil.EIGHTH_COLUMN;
+import static com.project.chess.board.BoardUtil.FIRST_COLUMN;
+import static com.project.chess.board.BoardUtil.SEVENTH_RANK;
+import static com.project.chess.board.BoardUtil.SECOND_RANK;
+import static com.project.chess.board.BoardUtil.isValidCoordinate;
 
 import com.google.common.collect.ImmutableList;
 import com.project.chess.Alliance;
-import com.project.chess.Board;
-import com.project.chess.Move;
-import com.project.chess.Move.MajorMove;
-import com.project.chess.Piece;
+import com.project.chess.board.Board;
+import com.project.chess.moves.Move;
+import com.project.chess.moves.Move.MajorMove;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -30,8 +29,8 @@ public class Pawn extends Piece {
    * @param piecePosition 조각의 위치.
    * @param pieceAlliance 조각의 연합(색깔).
    */
-  protected Pawn(final int piecePosition, final Alliance pieceAlliance) {
-    super(piecePosition, pieceAlliance);
+  public Pawn(final int piecePosition, final Alliance pieceAlliance) {
+    super(PieceType.PAWN, piecePosition, pieceAlliance);
   }
 
   /**
@@ -56,14 +55,15 @@ public class Pawn extends Piece {
       }
 
       // 한 칸 앞으로 이동
-      if (currentCandidateOffset == 8 && !board.getTile(candidateDestinationCoordinate).isTileOccupied()) {
+      if (currentCandidateOffset == 8 && !board.getTile(candidateDestinationCoordinate)
+          .isTileOccupied()) {
         // TODO: 폰 프로모션 처리
         legalMoves.add(new MajorMove(board, this, candidateDestinationCoordinate));
       }
       // 두 칸 앞으로 이동
       else if (currentCandidateOffset == 16 && this.isFirstMove() &&
-          ((SECOND_ROW[this.piecePosition] && this.pieceAlliance.isBlack()) ||
-              (SEVENTH_ROW[this.piecePosition] && this.pieceAlliance.isWhite()))) {
+          ((SEVENTH_RANK[this.piecePosition] && this.pieceAlliance.isBlack()) ||
+              (SECOND_RANK[this.piecePosition] && this.pieceAlliance.isWhite()))) {
         final int behindCandidateDestinationCoordinate =
             this.piecePosition + (this.pieceAlliance.getDirection() * 8);
         if (!board.getTile(behindCandidateDestinationCoordinate).isTileOccupied() &&
@@ -95,5 +95,15 @@ public class Pawn extends Piece {
       }
     }
     return ImmutableList.copyOf(legalMoves);
+  }
+
+  @Override
+  public Pawn movePiece(Move move) {
+    return new Pawn(move.getDestinationCoordinate(), move.getMovedPiece().getPieceAlliance());
+  }
+
+  @Override
+  public String toString() {
+    return PieceType.PAWN.toString();
   }
 }
