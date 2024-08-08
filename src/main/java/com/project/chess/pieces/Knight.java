@@ -1,15 +1,14 @@
 package com.project.chess.pieces;
 
-import static com.project.util.BoardUtil.isValidCoordinate;
+import static com.project.chess.board.BoardUtil.isValidCoordinate;
 
 import com.google.common.collect.ImmutableList;
 import com.project.chess.Alliance;
-import com.project.chess.Board;
-import com.project.chess.Move;
-import com.project.chess.Move.AttackMove;
-import com.project.chess.Move.MajorMove;
-import com.project.chess.Piece;
-import com.project.chess.Tile;
+import com.project.chess.board.Board;
+import com.project.chess.board.Tile;
+import com.project.chess.moves.Move;
+import com.project.chess.moves.Move.AttackMove;
+import com.project.chess.moves.Move.MajorMove;
 import com.project.chess.pieces.precompute.KnightMovePrecompute;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -26,8 +25,8 @@ public class Knight extends Piece {
    * @param piecePosition 조각의 위치.
    * @param pieceAlliance 조각의 연합(색깔).
    */
-  protected Knight(final int piecePosition, final Alliance pieceAlliance) {
-    super(piecePosition, pieceAlliance);
+  public Knight(final int piecePosition, final Alliance pieceAlliance) {
+    super(PieceType.KNIGHT, piecePosition, pieceAlliance);
   }
 
   /**
@@ -58,7 +57,8 @@ public class Knight extends Piece {
 
           // If the piece is an enemy piece, add an attack move
           if (this.pieceAlliance != pieceAlliance) {
-            legalMoves.add(new AttackMove(board, this, candidateDestinationCoordinate, pieceAtDestination));
+            legalMoves.add(
+                new AttackMove(board, this, candidateDestinationCoordinate, pieceAtDestination));
           }
         }
       }
@@ -66,5 +66,15 @@ public class Knight extends Piece {
 
     // Return the list of legal moves
     return ImmutableList.copyOf(legalMoves);
+  }
+
+  @Override
+  public Knight movePiece(Move move) {
+    return new Knight(move.getDestinationCoordinate(), move.getMovedPiece().getPieceAlliance());
+  }
+
+  @Override
+  public String toString() {
+    return PieceType.KNIGHT.toString();
   }
 }

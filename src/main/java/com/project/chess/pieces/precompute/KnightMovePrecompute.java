@@ -1,10 +1,10 @@
 package com.project.chess.pieces.precompute;
 
 import com.google.common.collect.ImmutableMap;
-import com.project.util.BoardUtil;
+import com.project.chess.board.BoardUtil;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
 
 public class KnightMovePrecompute {
@@ -39,7 +39,8 @@ public class KnightMovePrecompute {
 
   private static boolean isFirstColumnExclusion(int currentPosition, int candidateOffset) {
     return BoardUtil.FIRST_COLUMN[currentPosition] &&
-        (candidateOffset == -17 || candidateOffset == -10 || candidateOffset == 6 || candidateOffset == 15);
+        (candidateOffset == -17 || candidateOffset == -10 || candidateOffset == 6
+            || candidateOffset == 15);
   }
 
   private static boolean isSecondColumnExclusion(int currentPosition, int candidateOffset) {
@@ -54,7 +55,8 @@ public class KnightMovePrecompute {
 
   private static boolean isEighthColumnExclusion(int currentPosition, int candidateOffset) {
     return BoardUtil.EIGHTH_COLUMN[currentPosition] &&
-        (candidateOffset == -15 || candidateOffset == -6 || candidateOffset == 10 || candidateOffset == 17);
+        (candidateOffset == -15 || candidateOffset == -6 || candidateOffset == 10
+            || candidateOffset == 17);
   }
 
   private static boolean isValidCoordinate(final int coordinate) {
