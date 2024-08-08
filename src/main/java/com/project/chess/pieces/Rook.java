@@ -1,16 +1,15 @@
 package com.project.chess.pieces;
 
-import static com.project.util.BoardUtil.isValidCoordinate;
+import static com.project.chess.board.BoardUtil.isValidCoordinate;
 
 import com.google.common.collect.ImmutableList;
 import com.project.chess.Alliance;
-import com.project.chess.Board;
-import com.project.chess.Move;
-import com.project.chess.Move.AttackMove;
-import com.project.chess.Move.MajorMove;
-import com.project.chess.Piece;
-import com.project.chess.Tile;
-import com.project.util.BoardUtil;
+import com.project.chess.board.Board;
+import com.project.chess.board.BoardUtil;
+import com.project.chess.board.Tile;
+import com.project.chess.moves.Move;
+import com.project.chess.moves.Move.AttackMove;
+import com.project.chess.moves.Move.MajorMove;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -29,8 +28,8 @@ public class Rook extends Piece {
    * @param piecePosition 조각의 위치.
    * @param pieceAlliance 조각의 연합(색깔).
    */
-  protected Rook(int piecePosition, Alliance pieceAlliance) {
-    super(piecePosition, pieceAlliance);
+  public Rook(final int piecePosition, final Alliance pieceAlliance) {
+    super(PieceType.ROOK, piecePosition, pieceAlliance);
   }
 
   /**
@@ -111,6 +110,16 @@ public class Rook extends Piece {
   private static boolean isEighthColumnExclusion(final int currentPosition,
       final int candidateOffset) {
     return BoardUtil.EIGHTH_COLUMN[currentPosition] && (candidateOffset == 1);
+  }
+
+  @Override
+  public Rook movePiece(Move move) {
+    return new Rook(move.getDestinationCoordinate(), move.getMovedPiece().getPieceAlliance());
+  }
+
+  @Override
+  public String toString() {
+    return PieceType.ROOK.toString();
   }
 
 }

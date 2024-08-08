@@ -1,16 +1,15 @@
 package com.project.chess.pieces;
 
-import static com.project.util.BoardUtil.isValidCoordinate;
+import static com.project.chess.board.BoardUtil.isValidCoordinate;
 
 import com.google.common.collect.ImmutableList;
 import com.project.chess.Alliance;
-import com.project.chess.Board;
-import com.project.chess.Move;
-import com.project.chess.Move.AttackMove;
-import com.project.chess.Move.MajorMove;
-import com.project.chess.Piece;
-import com.project.chess.Tile;
-import com.project.util.BoardUtil;
+import com.project.chess.board.Board;
+import com.project.chess.board.BoardUtil;
+import com.project.chess.board.Tile;
+import com.project.chess.moves.Move;
+import com.project.chess.moves.Move.AttackMove;
+import com.project.chess.moves.Move.MajorMove;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -19,8 +18,8 @@ public class Queen extends Piece {
 
   private static final int[] CANDIDATE_MOVE_VECTOR_COORDINATES = {-9, -8, -7, -1, 1, 7, 8, 9};
 
-  protected Queen(int piecePosition, Alliance pieceAlliance) {
-    super(piecePosition, pieceAlliance);
+  public Queen(final int piecePosition, final Alliance pieceAlliance) {
+    super(PieceType.QUEEN, piecePosition, pieceAlliance);
   }
 
   @Override
@@ -82,7 +81,8 @@ public class Queen extends Piece {
    */
   private static boolean isFirstColumnExclusion(final int currentPosition,
       final int candidateOffset) {
-    return BoardUtil.FIRST_COLUMN[currentPosition] && (candidateOffset == -1 || candidateOffset == -9 || candidateOffset == 7);
+    return BoardUtil.FIRST_COLUMN[currentPosition] && (candidateOffset == -1
+        || candidateOffset == -9 || candidateOffset == 7);
   }
 
   /**
@@ -94,6 +94,17 @@ public class Queen extends Piece {
    */
   private static boolean isEighthColumnExclusion(final int currentPosition,
       final int candidateOffset) {
-    return BoardUtil.EIGHTH_COLUMN[currentPosition] && (candidateOffset == 1 || candidateOffset == -7 || candidateOffset == 9);
+    return BoardUtil.EIGHTH_COLUMN[currentPosition] && (candidateOffset == 1
+        || candidateOffset == -7 || candidateOffset == 9);
+  }
+
+  @Override
+  public Queen movePiece(Move move) {
+    return new Queen(move.getDestinationCoordinate(), move.getMovedPiece().getPieceAlliance());
+  }
+
+  @Override
+  public String toString() {
+    return PieceType.QUEEN.toString();
   }
 }
