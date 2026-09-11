@@ -50,6 +50,7 @@ public class TakenPiecesPanel extends JPanel {
     private final JPanel bottomPieces;
     private final JLabel bottomScore;
     private final JLabel bottomAdv;
+
     public TakenPiecesPanel() {
         super(new BorderLayout(0, 4));
         setBackground(PANEL_COLOR);
