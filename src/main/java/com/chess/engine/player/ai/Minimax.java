@@ -174,6 +174,14 @@ public class Minimax implements MoveStrategy {
             if (alpha >= beta) return cached.score;
         }
 
+        // ── Null move pruning ─────────────────────────────────────────
+        // Skip if: in check, shallow depth, or zugzwang-prone (only K+pawns)
+        if (depth >= 3 && !board.getCurrentPlayer().isInCheck() && hasNonPawnMaterial(board)) {
+            final Board nullBoard = makeNullMoveBoard(board);
+            final int nullScore = max(nullBoard, depth - 3, alpha, beta, ply + 1);
+            if (nullScore <= alpha) return alpha;
+        }
+
         int lowestSeenValue = beta;
         Move bestLocal = null;
 
@@ -214,6 +222,13 @@ public class Minimax implements MoveStrategy {
             if (cached.flag == TtEntry.LOWER_BOUND) alpha = Math.max(alpha, cached.score);
             if (cached.flag == TtEntry.UPPER_BOUND) beta = Math.min(beta, cached.score);
             if (alpha >= beta) return cached.score;
+        }
+
+        // ── Null move pruning ─────────────────────────────────────────
+        if (depth >= 3 && !board.getCurrentPlayer().isInCheck() && hasNonPawnMaterial(board)) {
+            final Board nullBoard = makeNullMoveBoard(board);
+            final int nullScore = min(nullBoard, depth - 3, alpha, beta, ply + 1);
+            if (nullScore >= beta) return beta;
         }
 
         int highestSeenValue = alpha;
@@ -321,6 +336,33 @@ public class Minimax implements MoveStrategy {
         ordered.addAll(killerList);
         ordered.addAll(quiet);
         return ordered;
+    }
+
+    /**
+     * Returns true if the current player has at least one major or minor piece
+     * (queen, rook, bishop, knight) — i.e. not a zugzwang-prone K+pawns-only position.
+     */
+    private static boolean hasNonPawnMaterial(final Board board) {
+        for (final Piece p : board.getCurrentPlayer().getActivePieces()) {
+            final Piece.PieceType t = p.getPieceType();
+            if (t == Piece.PieceType.QUEEN || t == Piece.PieceType.ROOK
+                    || t == Piece.PieceType.BISHOP || t == Piece.PieceType.KNIGHT) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Constructs a "null move" board: same position, but with the turn passed to the opponent.
+     * En-passant is cleared (it would be stale after passing a turn).
+     */
+    private static Board makeNullMoveBoard(final Board board) {
+        final Board.Builder builder = new Board.Builder();
+        for (final Piece p : board.getWhitePieces()) builder.setPiece(p);
+        for (final Piece p : board.getBlackPieces()) builder.setPiece(p);
+        builder.setMoveMaker(board.getCurrentPlayer().getOpponent().getAlliance());
+        return builder.build();
     }
 
     private void storeKiller(final int ply, final Move move) {

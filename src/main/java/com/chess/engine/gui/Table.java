@@ -22,7 +22,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.prefs.Preferences;
 
 import static javax.swing.SwingUtilities.isLeftMouseButton;
-import static javax.swing.SwingUtilities.isRightMouseButton;
 
 public class Table implements TableContext {
 
@@ -361,6 +360,7 @@ public class Table implements TableContext {
         dragImage = null;
         dragPoint = null;
         dragSourceTileId = -1;
+        boardPanel.clearAnnotations();
         tryMove(fromId, toId);
         if (lastMoveSource == fromId) { arrowSource = fromId; arrowDest = toId; }
         afterMoveRefresh();
@@ -409,7 +409,6 @@ public class Table implements TableContext {
             @Override
             public void mouseReleased(MouseEvent e) {
                 if (gameOver || !isLeftMouseButton(e)) {
-                    if (isRightMouseButton(e)) onRightClick();
                     return;
                 }
                 if (sourceTile == null) return;

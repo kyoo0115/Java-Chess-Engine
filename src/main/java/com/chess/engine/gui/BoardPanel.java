@@ -22,6 +22,7 @@ import static javax.swing.SwingUtilities.isRightMouseButton;
 class BoardPanel extends JPanel {
 
     private static final Font COORD_FONT = new Font("SansSerif", Font.BOLD, 10);
+    private static final Color ANNOTATION_COLOR = new Color(50, 200, 50, 200);
 
     final List<TilePanel> boardTiles;
     private final TableContext ctx;
@@ -31,6 +32,10 @@ class BoardPanel extends JPanel {
     private final BiConsumer<Integer, Integer> onMove;   // fromId, toId
     private final Runnable onRightClick;
     private final Consumer<Integer> onHover;             // hovered tileId
+
+    // Right-click annotations: each int[2] = {fromId, toId}; fromId==toId means circle
+    private final List<int[]> annotations = new ArrayList<>();
+    private int rcPressId = -1;  // tile pressed on right-click (for drag detection)
 
     BoardPanel(final TableContext ctx,
                final Runnable onRebuildCaches,
@@ -93,8 +98,38 @@ class BoardPanel extends JPanel {
         return row * 8 + col;
     }
 
+    void clearAnnotations() {
+        annotations.clear();
+    }
+
     private void installMouseListener() {
         final MouseAdapter adapter = new MouseAdapter() {
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (isRightMouseButton(e)) {
+                    rcPressId = tileIdAtPoint(e.getPoint());
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (!isRightMouseButton(e)) return;
+                final int releaseId = tileIdAtPoint(e.getPoint());
+                if (rcPressId >= 0) {
+                    // Toggle: remove existing annotation with same coordinates, or add new one
+                    final int from = rcPressId;
+                    final int to   = releaseId;
+                    boolean removed = annotations.removeIf(a -> a[0] == from && a[1] == to);
+                    if (!removed) annotations.add(new int[]{from, to});
+                    rcPressId = -1;
+                    repaint();
+                    // Don't propagate to Table's right-click handler when annotating
+                    return;
+                }
+                rcPressId = -1;
+                onRightClick.run();
+            }
 
             @Override
             public void mouseDragged(MouseEvent e) {
@@ -144,6 +179,13 @@ class BoardPanel extends JPanel {
         if (ctx.getArrowSource() >= 0 && ctx.getArrowDest() >= 0)
             paintMoveArrow(g2, ctx.getArrowSource(), ctx.getArrowDest());
 
+        // ── Right-click annotations ───────────────────────────────────
+        g2.setColor(ANNOTATION_COLOR);
+        for (final int[] ann : annotations) {
+            if (ann[0] == ann[1]) paintAnnotationCircle(g2, ann[0]);
+            else                  paintAnnotationArrow(g2, ann[0], ann[1]);
+        }
+
         // ── Coordinate labels ─────────────────────────────────────────
         if (ctx.isShowCoordinates()) paintCoordinates(g2);
 
@@ -171,6 +213,55 @@ class BoardPanel extends JPanel {
         final int shaftW = Math.max(2, tw / 10);
         final int headLen = Math.max(8, tw / 4);
         final int headW = Math.max(5, tw / 4);
+        final int sx2 = (int) (x2 - headLen * cos);
+        final int sy2 = (int) (y2 - headLen * sin);
+        final int[] shaftXs = {
+            (int) (x1 - shaftW * sin), (int) (x1 + shaftW * sin),
+            (int) (sx2 + shaftW * sin), (int) (sx2 - shaftW * sin)
+        };
+        final int[] shaftYs = {
+            (int) (y1 + shaftW * cos), (int) (y1 - shaftW * cos),
+            (int) (sy2 - shaftW * cos), (int) (sy2 + shaftW * cos)
+        };
+        g2.fillPolygon(shaftXs, shaftYs, 4);
+
+        final int[] headXs = {x2, (int) (sx2 - headW * sin), (int) (sx2 + headW * sin)};
+        final int[] headYs = {y2, (int) (sy2 + headW * cos), (int) (sy2 - headW * cos)};
+        g2.fillPolygon(headXs, headYs, 3);
+    }
+
+    private void paintAnnotationCircle(final Graphics2D g2, final int tileId) {
+        final int tw = getWidth() / 8;
+        final int th = getHeight() / 8;
+        final int disp = (ctx.getBoardDirection() == BoardDirection.FLIPPED) ? (63 - tileId) : tileId;
+        final int cx = (disp % 8) * tw + tw / 2;
+        final int cy = (disp / 8) * th + th / 2;
+        final int r = Math.min(tw, th) * 2 / 5;
+        final int stroke = Math.max(2, Math.min(tw, th) / 12);
+        final Graphics2D g3 = (Graphics2D) g2.create();
+        g3.setStroke(new BasicStroke(stroke));
+        g3.drawOval(cx - r, cy - r, r * 2, r * 2);
+        g3.dispose();
+    }
+
+    private void paintAnnotationArrow(final Graphics2D g2, final int fromId, final int toId) {
+        final int tw = getWidth() / 8;
+        final int th = getHeight() / 8;
+        final int fromDisp = (ctx.getBoardDirection() == BoardDirection.FLIPPED) ? (63 - fromId) : fromId;
+        final int toDisp   = (ctx.getBoardDirection() == BoardDirection.FLIPPED) ? (63 - toId)   : toId;
+
+        final int x1 = (fromDisp % 8) * tw + tw / 2;
+        final int y1 = (fromDisp / 8) * th + th / 2;
+        final int x2 = (toDisp % 8) * tw + tw / 2;
+        final int y2 = (toDisp / 8) * th + th / 2;
+
+        final double angle = Math.atan2(y2 - y1, x2 - x1);
+        final double cos = Math.cos(angle);
+        final double sin = Math.sin(angle);
+
+        final int shaftW  = Math.max(2, tw / 10);
+        final int headLen = Math.max(8, tw / 4);
+        final int headW   = Math.max(5, tw / 4);
         final int sx2 = (int) (x2 - headLen * cos);
         final int sy2 = (int) (y2 - headLen * sin);
         final int[] shaftXs = {
