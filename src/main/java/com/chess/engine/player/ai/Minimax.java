@@ -94,38 +94,56 @@ public class Minimax implements MoveStrategy {
         }
 
         final long startTime = System.currentTimeMillis();
+        final boolean isWhite = board.getCurrentPlayer().getAlliance().isWhite();
 
         Move bestMove = null;
-        int highestSeenValue = Integer.MIN_VALUE;
-        int lowestSeenValue = Integer.MAX_VALUE;
-        int alpha = Integer.MIN_VALUE;
-        int beta = Integer.MAX_VALUE;
 
-        System.out.println(board.getCurrentPlayer() + " thinking at depth = " + this.searchDepth);
+        // Iterative deepening: search depth 1..searchDepth, carrying TT across iterations.
+        // The best move from iteration d is placed first in the move list for iteration d+1.
+        for (int currentDepth = 1; currentDepth <= this.searchDepth; currentDepth++) {
+            // Reset killers each iteration so they are relevant to the current depth
+            for (int i = 0; i < MAX_DEPTH; i++) { killers[i][0] = null; killers[i][1] = null; }
 
-        for (final Move move : orderedMoves(board, 0)) {
-            final MoveTransition moveTransition = board.getCurrentPlayer().makeMove(move);
-            if (!moveTransition.getMoveStatus().isDone()) continue;
+            Move iterationBest = null;
+            int highestSeenValue = Integer.MIN_VALUE;
+            int lowestSeenValue = Integer.MAX_VALUE;
+            int alpha = Integer.MIN_VALUE;
+            int beta = Integer.MAX_VALUE;
 
-            if (board.getCurrentPlayer().getAlliance().isWhite()) {
-                final int currentValue = min(
-                        moveTransition.getTransitionBoard(),
-                        this.searchDepth - 1, alpha, beta, 1);
-                if (currentValue > highestSeenValue) {
-                    highestSeenValue = currentValue;
-                    bestMove = move;
+            // Build move list with previous iteration's best move at the front
+            final List<Move> moves = orderedMoves(board, 0);
+            if (bestMove != null && moves.remove(bestMove)) moves.add(0, bestMove);
+
+            for (final Move move : moves) {
+                final MoveTransition moveTransition = board.getCurrentPlayer().makeMove(move);
+                if (!moveTransition.getMoveStatus().isDone()) continue;
+
+                if (isWhite) {
+                    final int currentValue = min(
+                            moveTransition.getTransitionBoard(),
+                            currentDepth - 1, alpha, beta, 1);
+                    if (currentValue > highestSeenValue) {
+                        highestSeenValue = currentValue;
+                        iterationBest = move;
+                    }
+                    alpha = highestSeenValue;
+                } else {
+                    final int currentValue = max(
+                            moveTransition.getTransitionBoard(),
+                            currentDepth - 1, alpha, beta, 1);
+                    if (currentValue < lowestSeenValue) {
+                        lowestSeenValue = currentValue;
+                        iterationBest = move;
+                    }
+                    beta = lowestSeenValue;
                 }
-                alpha = highestSeenValue;
-            } else {
-                final int currentValue = max(
-                        moveTransition.getTransitionBoard(),
-                        this.searchDepth - 1, alpha, beta, 1);
-                if (currentValue < lowestSeenValue) {
-                    lowestSeenValue = currentValue;
-                    bestMove = move;
-                }
-                beta = lowestSeenValue;
             }
+
+            if (iterationBest != null) bestMove = iterationBest;
+
+            // Early exit if checkmate found — no point searching deeper
+            final int bestScore = isWhite ? highestSeenValue : lowestSeenValue;
+            if (Math.abs(bestScore) >= 10000 * 100) break;
         }
 
         System.out.printf("Move chosen: %s  (%.2f s)  TT size: %d%n",
