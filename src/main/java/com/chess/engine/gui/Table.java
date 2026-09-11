@@ -685,6 +685,7 @@ public class Table {
                     sourceTile = null;
                     humanMovedPiece = null;
                     tryMove(fromId, toId);
+                    if (lastMoveSource == fromId) { arrowSource = fromId; arrowDest = toId; }
                     afterMoveRefresh();
                 }
 
@@ -740,6 +741,7 @@ public class Table {
                 sourceTile = null;
                 humanMovedPiece = null;
                 tryMove(fromId, toId);
+                if (lastMoveSource == fromId) { arrowSource = fromId; arrowDest = toId; }
                 afterMoveRefresh();
             }
         }
@@ -814,19 +816,42 @@ public class Table {
             final int x2 = (toDisplay % 8) * tw + tw / 2;
             final int y2 = (toDisplay / 8) * th + th / 2;
 
-            g2.setColor(new Color(30, 144, 255, 170));   // translucent dodger-blue
-            g2.setStroke(new BasicStroke(Math.max(3, tw / 10), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g2.drawLine(x1, y1, x2, y2);
-
-            // Arrowhead as a filled polygon
             final double angle = Math.atan2(y2 - y1, x2 - x1);
-            final int headLen = Math.max(10, tw / 3);
-            final double spread = Math.toRadians(25);
-            final int ax1 = (int) (x2 - headLen * Math.cos(angle - spread));
-            final int ay1 = (int) (y2 - headLen * Math.sin(angle - spread));
-            final int ax2 = (int) (x2 - headLen * Math.cos(angle + spread));
-            final int ay2 = (int) (y2 - headLen * Math.sin(angle + spread));
-            g2.fillPolygon(new int[]{x2, ax1, ax2}, new int[]{y2, ay1, ay2}, 3);
+            final double cos = Math.cos(angle);
+            final double sin = Math.sin(angle);
+
+            // chess.com style: orange, semi-transparent
+            g2.setColor(new Color(235, 165, 25, 185));
+
+            // Shaft — filled rectangle along the line, stopping before the arrowhead base
+            final int shaftW = Math.max(2, tw / 10);
+            final int headLen = Math.max(8, tw / 4);
+            final int headW = Math.max(5, tw / 4);
+            // shaft end point (pulled back by headLen so it doesn't overlap the head)
+            final int sx2 = (int) (x2 - headLen * cos);
+            final int sy2 = (int) (y2 - headLen * sin);
+            final int[] shaftXs = {
+                (int) (x1 - shaftW * sin), (int) (x1 + shaftW * sin),
+                (int) (sx2 + shaftW * sin), (int) (sx2 - shaftW * sin)
+            };
+            final int[] shaftYs = {
+                (int) (y1 + shaftW * cos), (int) (y1 - shaftW * cos),
+                (int) (sy2 - shaftW * cos), (int) (sy2 + shaftW * cos)
+            };
+            g2.fillPolygon(shaftXs, shaftYs, 4);
+
+            // Arrowhead — wide triangle from headBase to tip
+            final int[] headXs = {
+                x2,
+                (int) (sx2 - headW * sin),
+                (int) (sx2 + headW * sin)
+            };
+            final int[] headYs = {
+                y2,
+                (int) (sy2 + headW * cos),
+                (int) (sy2 - headW * cos)
+            };
+            g2.fillPolygon(headXs, headYs, 3);
         }
 
         /**
