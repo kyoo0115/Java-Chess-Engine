@@ -68,6 +68,9 @@ public class Table {
     // Last-move highlights
     private int lastMoveSource = -1;
     private int lastMoveDest = -1;
+    // AI move arrow overlay
+    private int arrowSource = -1;
+    private int arrowDest = -1;
 
     public Table() {
         gameFrame = new JFrame("JChess");
@@ -330,6 +333,8 @@ public class Table {
         hoverTileId = -1;
         lastMoveSource = -1;
         lastMoveDest = -1;
+        arrowSource = -1;
+        arrowDest = -1;
         gameOver = false;
         SwingUtilities.invokeLater(() -> {
             gameHistoryPanel.redo(chessBoard, moveLog);
@@ -370,6 +375,8 @@ public class Table {
     }
 
     private void tryMove(final int fromId, final int toId) {
+        arrowSource = -1;
+        arrowDest = -1;
         Move move = Move.MoveFactory.createMove(chessBoard, fromId, toId);
         // If this is a pawn promotion and it's a human player's move, ask which piece
         if (move instanceof Move.PawnPromotion
@@ -585,7 +592,11 @@ public class Table {
             gameFrame.setCursor(Cursor.getDefaultCursor());
             try {
                 final Move m = get();
-                if (m != null) tryMove(m.getCurrentCoordinate(), m.getDestinationCoordinate());
+                if (m != null) {
+                    tryMove(m.getCurrentCoordinate(), m.getDestinationCoordinate());
+                    arrowSource = m.getCurrentCoordinate();
+                    arrowDest = m.getDestinationCoordinate();
+                }
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
@@ -781,10 +792,41 @@ public class Table {
                         tileW, tileH, this);
             }
 
+            // ── AI move arrow ─────────────────────────────────────────
+            if (arrowSource >= 0 && arrowDest >= 0) paintMoveArrow(g2, arrowSource, arrowDest);
+
             // ── Coordinate labels ─────────────────────────────────────
             if (showCoordinates) paintCoordinates(g2);
 
             g2.dispose();
+        }
+
+        private void paintMoveArrow(final Graphics2D g2, final int fromId, final int toId) {
+            final int tw = getWidth() / 8;
+            final int th = getHeight() / 8;
+
+            // Centre of source and destination tiles (accounting for board flip)
+            final int fromDisplay = (boardDirection == BoardDirection.FLIPPED) ? (63 - fromId) : fromId;
+            final int toDisplay   = (boardDirection == BoardDirection.FLIPPED) ? (63 - toId)   : toId;
+
+            final int x1 = (fromDisplay % 8) * tw + tw / 2;
+            final int y1 = (fromDisplay / 8) * th + th / 2;
+            final int x2 = (toDisplay % 8) * tw + tw / 2;
+            final int y2 = (toDisplay / 8) * th + th / 2;
+
+            g2.setColor(new Color(30, 144, 255, 170));   // translucent dodger-blue
+            g2.setStroke(new BasicStroke(Math.max(3, tw / 10), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.drawLine(x1, y1, x2, y2);
+
+            // Arrowhead as a filled polygon
+            final double angle = Math.atan2(y2 - y1, x2 - x1);
+            final int headLen = Math.max(10, tw / 3);
+            final double spread = Math.toRadians(25);
+            final int ax1 = (int) (x2 - headLen * Math.cos(angle - spread));
+            final int ay1 = (int) (y2 - headLen * Math.sin(angle - spread));
+            final int ax2 = (int) (x2 - headLen * Math.cos(angle + spread));
+            final int ay2 = (int) (y2 - headLen * Math.sin(angle + spread));
+            g2.fillPolygon(new int[]{x2, ax1, ax2}, new int[]{y2, ay1, ay2}, 3);
         }
 
         /**
