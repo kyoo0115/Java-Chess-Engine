@@ -1,0 +1,88 @@
+# Opening book — format: <FEN fields 1+2> <from><to>
+# FEN field 1 = piece placement, field 2 = side to move (w/b)
+# Move = coordinate notation e.g. e2e4
+
+# ── Starting moves (White) ────────────────────────────────────────────
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w e2e4
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w d2d4
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w c2c4
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w g1f3
+
+# ── Replies to 1.e4 (Black) ───────────────────────────────────────────
+# 1...e5 (Open game)
+rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b e7e5
+# 1...c5 (Sicilian)
+rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b c7c5
+# 1...e6 (French)
+rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b e7e6
+# 1...c6 (Caro-Kann)
+rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b c7c6
+
+# ── Replies to 1.d4 (Black) ───────────────────────────────────────────
+# 1...d5 (Queen's pawn)
+rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b d7d5
+# 1...Nf6 (Indian defences)
+rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b g8f6
+# 1...f5 (Dutch)
+rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b f7f5
+
+# ── Replies to 1.c4 (Black) ───────────────────────────────────────────
+rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b e7e5
+rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b c7c5
+
+# ── Open game: 1.e4 e5 → 2.Nf3 (White) ──────────────────────────────
+rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w g1f3
+
+# ── Ruy López: 1.e4 e5 2.Nf3 Nc6 → 3.Bb5 (White) ────────────────────
+rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b b8c6
+r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w f1b5
+
+# ── Italian Game: 1.e4 e5 2.Nf3 Nc6 → 3.Bc4 ────────────────────────
+r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w f1c4
+
+# ── Sicilian: 1.e4 c5 → 2.Nf3 (White) ───────────────────────────────
+rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w g1f3
+
+# ── Sicilian: 2...d6 (Najdorf/Classical) ─────────────────────────────
+rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b d7d6
+# 2...Nc6
+rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b b8c6
+# 2...e6
+rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b e7e6
+
+# ── French: 1.e4 e6 → 2.d4 (White) ──────────────────────────────────
+rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w d2d4
+# 2...d5
+rnbqkbnr/pppp1ppp/4p3/8/3PP3/8/PPP2PPP/RNBQKBNR b d7d5
+
+# ── Caro-Kann: 1.e4 c6 → 2.d4 (White) ───────────────────────────────
+rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w d2d4
+# 2...d5
+rnbqkbnr/pp1ppppp/2p5/8/3PP3/8/PPP2PPP/RNBQKBNR b d7d5
+
+# ── Queen's Gambit: 1.d4 d5 → 2.c4 (White) ──────────────────────────
+rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w c2c4
+# 2...e6 (QGD)
+rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b e7e6
+# 2...c6 (Slav)
+rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b c7c6
+# 2...dxc4 (QGA)
+rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b d5c4
+
+# ── King's Indian: 1.d4 Nf6 → 2.c4 (White) ──────────────────────────
+rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w c2c4
+# 2...g6
+rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b g7g6
+# 3.Nc3
+rnbqkb1r/pppppp1p/5np1/8/2PP4/8/PP2PPPP/RNBQKBNR w b1c3
+# 3...Bg7
+rnbqkb1r/pppppp1p/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR b f8g7
+
+# ── English Opening: 1.c4 e5 → 2.Nc3 (White) ────────────────────────
+rnbqkbnr/pppp1ppp/8/4p3/2P5/8/PP1PPPPP/RNBQKBNR w b1c3
+
+# ── Réti: 1.Nf3 d5 → 2.g3 (White) ───────────────────────────────────
+rnbqkbnr/ppp1pppp/8/3p4/8/5N2/PPPPPPPP/RNBQKB1R w g2g3
+
+# ── Pirc/Modern: 1.e4 d6 → 2.d4 (White) ─────────────────────────────
+rnbqkbnr/ppp1pppp/3p4/8/4P3/8/PPPP1PPP/RNBQKBNR w d2d4

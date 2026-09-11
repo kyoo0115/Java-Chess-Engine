@@ -5,6 +5,9 @@ import com.chess.engine.board.Move;
 import com.chess.engine.pieces.Piece;
 import com.chess.engine.player.MoveTransition;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.*;
 
 public class Minimax implements MoveStrategy {
@@ -20,6 +23,9 @@ public class Minimax implements MoveStrategy {
     // Flag: EXACT=0, LOWER_BOUND=1 (beta cutoff), UPPER_BOUND=2 (no cutoff).
     private final Map<Long, TtEntry> transpositionTable = new HashMap<>(1 << 20);
     private final Move[][] killers = new Move[MAX_DEPTH][2];
+    // ── Opening book ─────────────────────────────────────────────────
+    // Maps "FEN-field1 FEN-field2" → coordinate move string (e.g. "e2e4")
+    private static final Map<String, List<String>> OPENING_BOOK = loadOpeningBook();
 
     // ─────────────────────────────────────────────────────────────────
     //  Public interface
@@ -28,6 +34,30 @@ public class Minimax implements MoveStrategy {
     public Minimax(final int searchDepth) {
         this.boardEvaluator = new StandardBoardEvaluator();
         this.searchDepth = searchDepth;
+    }
+
+    private static Map<String, List<String>> loadOpeningBook() {
+        final Map<String, List<String>> book = new HashMap<>();
+        try (final InputStream is = Minimax.class.getClassLoader()
+                .getResourceAsStream("opening_book.txt")) {
+            if (is == null) return book;
+            try (final BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    line = line.trim();
+                    if (line.isEmpty() || line.startsWith("#")) continue;
+                    final String[] parts = line.split("\\s+");
+                    if (parts.length < 3) continue;
+                    // key = "field1 field2", value = move (field3)
+                    final String key = parts[0] + " " + parts[1];
+                    book.computeIfAbsent(key, k -> new ArrayList<>()).add(parts[2]);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Opening book load error: " + e.getMessage());
+        }
+        System.out.println("Opening book loaded: " + book.size() + " positions");
+        return Collections.unmodifiableMap(book);
     }
 
     /**
@@ -96,6 +126,18 @@ public class Minimax implements MoveStrategy {
         final long startTime = System.currentTimeMillis();
         final boolean isWhite = board.getCurrentPlayer().getAlliance().isWhite();
 
+        // ── Opening book lookup ───────────────────────────────────────
+        final String bookKey = boardToFenKey(board);
+        final List<String> bookMoves = OPENING_BOOK.get(bookKey);
+        if (bookMoves != null && !bookMoves.isEmpty()) {
+            final String chosen = bookMoves.get(new Random().nextInt(bookMoves.size()));
+            final Move bookMove = findMoveByCoord(board, chosen);
+            if (bookMove != null) {
+                System.out.println("Book move: " + chosen);
+                return bookMove;
+            }
+        }
+
         Move bestMove = null;
 
         // Iterative deepening: search depth 1..searchDepth, carrying TT across iterations.
@@ -112,7 +154,7 @@ public class Minimax implements MoveStrategy {
 
             // Build move list with previous iteration's best move at the front
             final List<Move> moves = orderedMoves(board, 0);
-            if (bestMove != null && moves.remove(bestMove)) moves.add(0, bestMove);
+            if (bestMove != null && moves.remove(bestMove)) moves.addFirst(bestMove);
 
             for (final Move move : moves) {
                 final MoveTransition moveTransition = board.getCurrentPlayer().makeMove(move);
@@ -363,6 +405,63 @@ public class Minimax implements MoveStrategy {
         for (final Piece p : board.getBlackPieces()) builder.setPiece(p);
         builder.setMoveMaker(board.getCurrentPlayer().getOpponent().getAlliance());
         return builder.build();
+    }
+
+    /**
+     * Serialises a board position to the two-field FEN prefix used as the book key:
+     * "piece-placement side-to-move"  e.g. "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b"
+     */
+    private static String boardToFenKey(final Board board) {
+        final StringBuilder sb = new StringBuilder();
+        for (int rank = 0; rank < 8; rank++) {
+            int empty = 0;
+            for (int file = 0; file < 8; file++) {
+                final com.chess.engine.board.Tile tile = board.getTile(rank * 8 + file);
+                if (!tile.isTileOccupied()) {
+                    empty++;
+                } else {
+                    if (empty > 0) { sb.append(empty); empty = 0; }
+                    final Piece p = tile.getPiece();
+                    final char c = fenChar(p);
+                    sb.append(c);
+                }
+            }
+            if (empty > 0) sb.append(empty);
+            if (rank < 7) sb.append('/');
+        }
+        sb.append(' ');
+        sb.append(board.getCurrentPlayer().getAlliance().isWhite() ? 'w' : 'b');
+        return sb.toString();
+    }
+
+    private static char fenChar(final Piece p) {
+        final char c = switch (p.getPieceType()) {
+            case KING   -> 'k';
+            case QUEEN  -> 'q';
+            case ROOK   -> 'r';
+            case BISHOP -> 'b';
+            case KNIGHT -> 'n';
+            case PAWN   -> 'p';
+        };
+        return p.getPieceAlliance().isWhite() ? Character.toUpperCase(c) : c;
+    }
+
+    /**
+     * Finds a legal move matching a coordinate string like "e2e4" or "e7e8q".
+     */
+    private static Move findMoveByCoord(final Board board, final String coord) {
+        if (coord.length() < 4) return null;
+        final int fromFile = coord.charAt(0) - 'a';
+        final int fromRank = '8' - coord.charAt(1);
+        final int toFile   = coord.charAt(2) - 'a';
+        final int toRank   = '8' - coord.charAt(3);
+        final int fromId   = fromRank * 8 + fromFile;
+        final int toId     = toRank   * 8 + toFile;
+        for (final Move m : board.getCurrentPlayer().getLegalMoves()) {
+            if (m.getCurrentCoordinate() == fromId && m.getDestinationCoordinate() == toId)
+                return m;
+        }
+        return null;
     }
 
     private void storeKiller(final int ply, final Move move) {

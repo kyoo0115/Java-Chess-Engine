@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 public class Board {
 
@@ -90,6 +91,105 @@ public class Board {
         builder.setPiece(new Rook(63, Alliance.WHITE));
 
         builder.setMoveMaker(Alliance.WHITE);
+
+        return builder.build();
+    }
+
+    /**
+     * Parses a FEN string and returns the corresponding Board.
+     * Handles piece placement, active color, castling rights, and en-passant square.
+     * Throws {@link IllegalArgumentException} if the FEN is malformed.
+     */
+    public static Board fromFEN(final String fen) {
+        final String[] fields = fen.trim().split("\\s+");
+        if (fields.length < 2) throw new IllegalArgumentException("FEN must have at least 2 fields");
+
+        final Builder builder = new Builder();
+
+        // ── Field 1: piece placement ──────────────────────────────────
+        final String[] ranks = fields[0].split("/");
+        if (ranks.length != 8) throw new IllegalArgumentException("FEN piece placement must have 8 ranks");
+
+        // Castling rights: used below when placing kings/rooks
+        final String castling = fields.length >= 3 ? fields[2] : "-";
+        // En-passant target square
+        final String epField = fields.length >= 4 ? fields[3] : "-";
+
+        // Track whether we have seen the kings/rooks to set isFirstMove correctly
+        // (isFirstMove = piece has castling right in the FEN)
+        boolean whiteKingCanCastle   = castling.contains("K") || castling.contains("Q");
+        boolean blackKingCanCastle   = castling.contains("k") || castling.contains("q");
+        boolean whiteRookKingSide    = castling.contains("K");
+        boolean whiteRookQueenSide   = castling.contains("Q");
+        boolean blackRookKingSide    = castling.contains("k");
+        boolean blackRookQueenSide   = castling.contains("q");
+
+        for (int rankIdx = 0; rankIdx < 8; rankIdx++) {
+            int file = 0;
+            for (final char ch : ranks[rankIdx].toCharArray()) {
+                if (Character.isDigit(ch)) {
+                    file += ch - '0';
+                } else {
+                    final int square = rankIdx * 8 + file;
+                    final Alliance alliance = Character.isUpperCase(ch) ? Alliance.WHITE : Alliance.BLACK;
+                    final char lower = Character.toLowerCase(ch);
+                    final Piece piece;
+                    switch (lower) {
+                        case 'p' -> piece = new Pawn(square, alliance);
+                        case 'n' -> piece = new Knight(square, alliance);
+                        case 'b' -> piece = new Bishop(square, alliance);
+                        case 'q' -> piece = new Queen(square, alliance);
+                        case 'r' -> {
+                            boolean firstMove = false;
+                            if (alliance == Alliance.WHITE) {
+                                firstMove = (square == 63 && whiteRookKingSide)
+                                         || (square == 56 && whiteRookQueenSide);
+                            } else {
+                                firstMove = (square == 7 && blackRookKingSide)
+                                         || (square == 0 && blackRookQueenSide);
+                            }
+                            piece = new Rook(alliance, square, firstMove);
+                        }
+                        case 'k' -> {
+                            boolean firstMove = (alliance == Alliance.WHITE)
+                                    ? whiteKingCanCastle : blackKingCanCastle;
+                            piece = new King(alliance, square, firstMove);
+                        }
+                        default -> throw new IllegalArgumentException("Unknown FEN piece char: " + ch);
+                    }
+                    builder.setPiece(piece);
+                    file++;
+                }
+            }
+        }
+
+        // ── Field 2: active color ─────────────────────────────────────
+        final Alliance sideToMove = fields[1].equals("b") ? Alliance.BLACK : Alliance.WHITE;
+        builder.setMoveMaker(sideToMove);
+
+        // ── Field 4: en-passant target square ─────────────────────────
+        if (!epField.equals("-") && Pattern.matches("[a-h][36]", epField)) {
+            final int epFile = epField.charAt(0) - 'a';
+            final int epRank = epField.charAt(1) - '1'; // 0-based from rank 1
+            // The pawn that just moved is on the rank opposite to the ep target
+            // ep square e3 means a white pawn moved from e2 to e4; pawn is on e4 (rank index 4 = row 3 from top)
+            // ep square e6 means a black pawn moved from e7 to e5; pawn is on e5 (rank index 2 from top? no)
+            // Board squares: row 0=rank8, row 7=rank1.  rank1=row7, rank3=row4 (ep square row), rank6=row1
+            // White ep target is rank 6 (char '6'), pawn is on rank 5 = row 3 from top = square (3*8+file)
+            // Black ep target is rank 3 (char '3'), pawn is on rank 4 = row 4 from top = square (4*8+file)
+            final int pawnSquare;
+            if (epRank == 5) {
+                // ep target is rank 6 → white pawn just moved to rank 5 (square row 3)
+                pawnSquare = 3 * 8 + epFile;
+            } else {
+                // ep target is rank 3 → black pawn just moved to rank 4 (square row 4)
+                pawnSquare = 4 * 8 + epFile;
+            }
+            final Piece pawnOnBoard = builder.boardConfig.get(pawnSquare);
+            if (pawnOnBoard instanceof Pawn) {
+                builder.setEnPassantPawn((Pawn) pawnOnBoard);
+            }
+        }
 
         return builder.build();
     }

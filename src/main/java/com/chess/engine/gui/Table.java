@@ -222,6 +222,10 @@ public class Table implements TableContext {
 
         menu.addSeparator();
 
+        final JMenuItem loadFen = new JMenuItem("Load FEN\u2026");
+        loadFen.addActionListener(e -> loadGameFromFen());
+        menu.add(loadFen);
+
         final JMenuItem save = new JMenuItem("Save Game…");
         save.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK));
         save.addActionListener(e -> PgnUtils.saveGame(gameFrame, moveLog, gameSetup));
@@ -571,6 +575,34 @@ public class Table implements TableContext {
             boardPanel.drawBoard(chessBoard);
             updateStatus();
         });
+    }
+
+    private void loadGameFromFen() {
+        final String fen = JOptionPane.showInputDialog(gameFrame,
+                "Enter FEN string:", "Load FEN Position",
+                JOptionPane.PLAIN_MESSAGE);
+        if (fen == null || fen.isBlank()) return;
+        try {
+            final Board loaded = Board.fromFEN(fen.trim());
+            chessBoard = loaded;
+            moveLog.clear();
+            sourceTile = null; destinationTile = null; humanMovedPiece = null;
+            dragImage = null; dragPoint = null; dragSourceTileId = -1;
+            hoverTileId = -1; lastMoveSource = -1; lastMoveDest = -1;
+            arrowSource = -1; arrowDest = -1; gameOver = false;
+            boardPanel.clearAnnotations();
+            SwingUtilities.invokeLater(() -> {
+                gameHistoryPanel.redo(chessBoard, moveLog);
+                takenPiecesPanel.redo(moveLog);
+                boardPanel.drawBoard(chessBoard);
+                updateStatus();
+                if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
+            });
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(gameFrame,
+                    "Invalid FEN: " + ex.getMessage(),
+                    "FEN Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void resetGame() {
