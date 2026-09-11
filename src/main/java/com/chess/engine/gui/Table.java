@@ -121,6 +121,13 @@ public class Table implements TableContext {
                 BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(210, 211, 216)),
                 BorderFactory.createEmptyBorder(6, 8, 6, 8)));
 
+        // ── Board area: captured strips above and below the board ─────
+        final JPanel boardArea = new JPanel(new BorderLayout(0, 0));
+        boardArea.setBackground(new Color(245, 245, 248));
+        boardArea.add(takenPiecesPanel.getTopStrip(), BorderLayout.NORTH);
+        boardArea.add(boardPanel, BorderLayout.CENTER);
+        boardArea.add(takenPiecesPanel.getBottomStrip(), BorderLayout.SOUTH);
+
         // ── Right sidebar: clock cards + move history ─────────────────
         final JPanel rightSidebar = new JPanel(new BorderLayout(0, 0));
         rightSidebar.setBackground(new Color(248, 248, 250));
@@ -130,8 +137,7 @@ public class Table implements TableContext {
         rightSidebar.add(clockPanel, BorderLayout.NORTH);
         rightSidebar.add(gameHistoryPanel, BorderLayout.CENTER);
 
-        gameFrame.add(takenPiecesPanel, BorderLayout.WEST);
-        gameFrame.add(boardPanel, BorderLayout.CENTER);
+        gameFrame.add(boardArea, BorderLayout.CENTER);
         gameFrame.add(rightSidebar, BorderLayout.EAST);
         gameFrame.add(statusLabel, BorderLayout.SOUTH);
 
