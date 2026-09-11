@@ -1,12 +1,11 @@
 package com.chess.engine.gui;
 
 import com.chess.engine.Alliance;
+import com.chess.engine.PlayerType;
 import com.chess.engine.player.Player;
 
 import javax.swing.*;
 import java.awt.*;
-
-import static com.chess.engine.gui.Table.PlayerType;
 
 public class GameSetup extends JDialog {
 

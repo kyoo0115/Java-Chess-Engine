@@ -2,14 +2,13 @@ package com.chess.engine.gui;
 
 import com.chess.engine.board.Board;
 import com.chess.engine.board.Move;
+import com.chess.engine.board.MoveLog;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
-
-import static com.chess.engine.gui.Table.MoveLog;
 
 public class GameHistoryPanel extends JPanel {
 

@@ -1,6 +1,7 @@
 package com.chess.engine.gui;
 
 import com.chess.engine.board.Move;
+import com.chess.engine.board.MoveLog;
 import com.chess.engine.pieces.Piece;
 import com.google.common.primitives.Ints;
 
@@ -13,8 +14,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
-
-import static com.chess.engine.gui.Table.MoveLog;
 
 /**
  * Side panel — chess.com style captured-piece layout.
