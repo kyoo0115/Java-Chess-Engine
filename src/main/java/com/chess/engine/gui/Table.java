@@ -31,7 +31,7 @@ import static javax.swing.SwingUtilities.isLeftMouseButton;
 public class Table implements TableContext {
 
     // ── Constants ─────────────────────────────────────────────────────
-    private static final Dimension OUTER_FRAME_DIMENSION = new Dimension(980, 700);
+    private static final Dimension OUTER_FRAME_DIMENSION = new Dimension(980, 800);
     private static final String PIECE_ICON_PATH = "images/";
     // ── Static raw image cache (loaded once) ──────────────────────────
     private static final Map<String, BufferedImage> RAW_IMAGE_CACHE = loadRawCache();
@@ -121,12 +121,19 @@ public class Table implements TableContext {
                 BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(210, 211, 216)),
                 BorderFactory.createEmptyBorder(6, 8, 6, 8)));
 
-        // ── Board area: captured strips above and below the board ─────
-        final JPanel boardArea = new JPanel(new BorderLayout(0, 0));
-        boardArea.setBackground(new Color(245, 245, 248));
-        boardArea.add(takenPiecesPanel.getTopStrip(), BorderLayout.NORTH);
-        boardArea.add(boardPanel, BorderLayout.CENTER);
-        boardArea.add(takenPiecesPanel.getBottomStrip(), BorderLayout.SOUTH);
+        // ── Board area: top strip / board / bottom strip + status ─────
+        // The status bar is nested inside boardSouth so it aligns with
+        // the board width only — not stretched across the sidebar too.
+        final JPanel boardSouth = new JPanel(new BorderLayout(0, 0));
+        boardSouth.setBackground(new Color(245, 245, 248));
+        boardSouth.add(takenPiecesPanel.getBottomStrip(), BorderLayout.NORTH);
+        boardSouth.add(statusLabel,                       BorderLayout.SOUTH);
+
+        final JPanel boardArea2 = new JPanel(new BorderLayout(0, 0));
+        boardArea2.setBackground(new Color(245, 245, 248));
+        boardArea2.add(takenPiecesPanel.getTopStrip(), BorderLayout.NORTH);
+        boardArea2.add(boardPanel,                     BorderLayout.CENTER);
+        boardArea2.add(boardSouth,                     BorderLayout.SOUTH);
 
         // ── Right sidebar: clock cards + move history ─────────────────
         final JPanel rightSidebar = new JPanel(new BorderLayout(0, 0));
@@ -137,9 +144,8 @@ public class Table implements TableContext {
         rightSidebar.add(clockPanel, BorderLayout.NORTH);
         rightSidebar.add(gameHistoryPanel, BorderLayout.CENTER);
 
-        gameFrame.add(boardArea, BorderLayout.CENTER);
+        gameFrame.add(boardArea2,   BorderLayout.CENTER);
         gameFrame.add(rightSidebar, BorderLayout.EAST);
-        gameFrame.add(statusLabel, BorderLayout.SOUTH);
 
         boardDirection = BoardDirection.NORMAL;
 
