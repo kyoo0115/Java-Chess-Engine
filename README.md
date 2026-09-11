@@ -13,7 +13,7 @@ A fully-featured chess game written in Java with a Swing GUI and a built-in AI o
 - **Move arrow overlay** — a chess.com-style orange arrow shows the last move played (for both human and AI moves)
 - **Red king highlight** — the king's tile is tinted red when in check
 - **Undo / Take-back** — File → Undo (or Ctrl+Z) takes back the last move (2 plies in Human vs Computer, 1 in Human vs Human)
-- **Synthesised sound effects** — move, capture, check, castle, and game-end sounds generated at runtime (no audio files needed)
+- **Sound effects** — move, capture, check, castle, and game-end sounds via MP3 files (lichess open-source audio)
 - **Three board themes** — Classic, Green, Blue
 - **Optional visual aids** — legal-move dots on click/hover, last-move highlight, selected-tile highlight, board coordinate labels
 - **Flip board** — view from either side
