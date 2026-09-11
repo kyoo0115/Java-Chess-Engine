@@ -13,10 +13,15 @@ public class GameSetup extends JDialog {
     private static final String HUMAN_TEXT = "Human";
     private static final String COMPUTER_TEXT = "Computer";
 
-    // Defaults: White = Human, Black = Computer, depth = 4
+    private static final String[] DIFFICULTY_LABELS = {"Easy", "Medium", "Hard", "Master", "Custom"};
+    private static final int[]    DIFFICULTY_DEPTHS  = {2,      4,       6,      8,        -1};
+
+    // Defaults: White = Human, Black = Computer, depth = 4 (Medium)
     private PlayerType whitePlayerType = PlayerType.HUMAN;
     private PlayerType blackPlayerType = PlayerType.COMPUTER;
-    private JSpinner searchDepthSpinner;
+    private JComboBox<String> difficultyCombo;
+    private JSpinner customDepthSpinner;
+    private JPanel customSpinnerPanel;
 
     GameSetup(final JFrame frame,
               final boolean modal) {
@@ -46,8 +51,25 @@ public class GameSetup extends JDialog {
         myPanel.add(blackHumanButton);
         myPanel.add(blackComputerButton);
 
-        myPanel.add(new JLabel("Search"));
-        this.searchDepthSpinner = createLabeledSpinner(myPanel, new SpinnerNumberModel(4, 1, 20, 1));
+        // ── Difficulty combo ─────────────────────────────────────────
+        myPanel.add(new JLabel("Difficulty"));
+        difficultyCombo = new JComboBox<>(DIFFICULTY_LABELS);
+        difficultyCombo.setSelectedIndex(1); // Medium (depth 4) by default
+        myPanel.add(difficultyCombo);
+
+        // ── Custom depth spinner (hidden unless "Custom" is selected) ─
+        customDepthSpinner = new JSpinner(new SpinnerNumberModel(4, 1, 20, 1));
+        customSpinnerPanel = new JPanel(new BorderLayout());
+        customSpinnerPanel.add(new JLabel("Search Depth"), BorderLayout.WEST);
+        customSpinnerPanel.add(customDepthSpinner, BorderLayout.CENTER);
+        customSpinnerPanel.setVisible(false);
+        myPanel.add(customSpinnerPanel);
+
+        difficultyCombo.addActionListener(e -> {
+            final boolean isCustom = difficultyCombo.getSelectedIndex() == DIFFICULTY_LABELS.length - 1;
+            customSpinnerPanel.setVisible(isCustom);
+            pack();
+        });
 
         final JButton cancelButton = new JButton("Cancel");
         final JButton okButton = new JButton("OK");
@@ -84,16 +106,13 @@ public class GameSetup extends JDialog {
         return getBlackPlayerType() == PlayerType.COMPUTER;
     }
 
-    private JSpinner createLabeledSpinner(JPanel panel, SpinnerNumberModel model) {
-        JLabel label = new JLabel("Search Depth");
-        JSpinner spinner = new JSpinner(model);
-        panel.add(label);
-        panel.add(spinner);
-        return spinner;
-    }
-
     int getSearchDepth() {
-        return (int) this.searchDepthSpinner.getValue();
+        final int idx = difficultyCombo.getSelectedIndex();
+        if (DIFFICULTY_DEPTHS[idx] == -1) {
+            // Custom: read from spinner
+            return (int) customDepthSpinner.getValue();
+        }
+        return DIFFICULTY_DEPTHS[idx];
     }
 
     PlayerType getWhitePlayerType() {
