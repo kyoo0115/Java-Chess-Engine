@@ -19,11 +19,11 @@ public class GameSetup extends JDialog {
     // Defaults: White = Human, Black = Computer, depth = 4 (Medium)
     private PlayerType whitePlayerType = PlayerType.HUMAN;
     private PlayerType blackPlayerType = PlayerType.COMPUTER;
-    private JComboBox<String> difficultyCombo;
-    private JSpinner customDepthSpinner;
-    private JPanel customSpinnerPanel;
-    private JCheckBox clockEnabledBox;
-    private JSpinner minutesSpinner;
+    private final JComboBox<String> difficultyCombo;
+    private final JSpinner customDepthSpinner;
+    private final JPanel customSpinnerPanel;
+    private final JCheckBox clockEnabledBox;
+    private final JSpinner minutesSpinner;
 
     GameSetup(final JFrame frame,
               final boolean modal) {
