@@ -26,7 +26,7 @@ import static javax.swing.SwingUtilities.isLeftMouseButton;
 public class Table implements TableContext {
 
     // ── Constants ─────────────────────────────────────────────────────
-    private static final Dimension OUTER_FRAME_DIMENSION = new Dimension(880, 680);
+    private static final Dimension OUTER_FRAME_DIMENSION = new Dimension(980, 700);
     private static final String PIECE_ICON_PATH = "images/";
     // ── Static raw image cache (loaded once) ──────────────────────────
     private static final Map<String, BufferedImage> RAW_IMAGE_CACHE = loadRawCache();
@@ -109,13 +109,22 @@ public class Table implements TableContext {
 
         statusLabel = new JLabel("White to move", SwingConstants.CENTER);
         statusLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-        statusLabel.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+        statusLabel.setForeground(new Color(200, 200, 200));
+        statusLabel.setBackground(new Color(30, 30, 30));
+        statusLabel.setOpaque(true);
+        statusLabel.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
+
+        // ── Right sidebar: clock cards + move history ─────────────────
+        final JPanel rightSidebar = new JPanel(new BorderLayout(0, 0));
+        rightSidebar.setBackground(new Color(30, 30, 30));
+        rightSidebar.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
+        rightSidebar.add(clockPanel, BorderLayout.NORTH);
+        rightSidebar.add(gameHistoryPanel, BorderLayout.CENTER);
 
         gameFrame.add(takenPiecesPanel, BorderLayout.WEST);
         gameFrame.add(boardPanel, BorderLayout.CENTER);
-        gameFrame.add(gameHistoryPanel, BorderLayout.EAST);
+        gameFrame.add(rightSidebar, BorderLayout.EAST);
         gameFrame.add(statusLabel, BorderLayout.SOUTH);
-        gameFrame.add(clockPanel, BorderLayout.NORTH);
 
         boardDirection = BoardDirection.NORMAL;
 

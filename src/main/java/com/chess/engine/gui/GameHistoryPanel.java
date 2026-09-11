@@ -5,28 +5,73 @@ import com.chess.engine.board.Move;
 import com.chess.engine.board.MoveLog;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class GameHistoryPanel extends JPanel {
 
-    private static final Dimension HISTORY_PANEL_DIMENSION = new Dimension(100, 400);
+    private static final Dimension HISTORY_PANEL_DIMENSION = new Dimension(140, 400);
+    private static final Color SIDEBAR_BG   = new Color(30, 30, 30);
+    private static final Color ROW_ODD      = new Color(38, 38, 38);
+    private static final Color ROW_EVEN     = new Color(45, 45, 45);
+    private static final Color TEXT_COLOR   = new Color(200, 200, 200);
+    private static final Color HEADER_BG    = new Color(25, 25, 25);
+    private static final Color HEADER_FG    = new Color(140, 140, 140);
+    private static final Color SEL_BG       = new Color(60, 90, 60);
+
     private final DataModel model;
     private final JScrollPane scrollPane;
 
     GameHistoryPanel() {
         this.setLayout(new BorderLayout());
         this.model = new DataModel();
-        final JTable table = new JTable(model);
-        table.setRowHeight(15);
-        this.scrollPane = new JScrollPane(table);
-        scrollPane.setColumnHeaderView(table.getTableHeader());
-        scrollPane.setPreferredSize(HISTORY_PANEL_DIMENSION);
-        this.add(scrollPane, BorderLayout.CENTER);
-        this.setVisible(true);
 
+        final JTable table = new JTable(model);
+        table.setRowHeight(18);
+        table.setBackground(ROW_ODD);
+        table.setForeground(TEXT_COLOR);
+        table.setGridColor(new Color(55, 55, 55));
+        table.setSelectionBackground(SEL_BG);
+        table.setSelectionForeground(TEXT_COLOR);
+        table.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        table.setShowVerticalLines(false);
+
+        // Alternating row renderer
+        final DefaultTableCellRenderer renderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(final JTable t, final Object value,
+                    final boolean isSelected, final boolean hasFocus, final int row, final int col) {
+                super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, col);
+                if (!isSelected) {
+                    setBackground(row % 2 == 0 ? ROW_EVEN : ROW_ODD);
+                    setForeground(TEXT_COLOR);
+                }
+                setBorder(BorderFactory.createEmptyBorder(1, 4, 1, 4));
+                return this;
+            }
+        };
+        table.setDefaultRenderer(String.class, renderer);
+
+        // Header styling
+        final JTableHeader header = table.getTableHeader();
+        header.setBackground(HEADER_BG);
+        header.setForeground(HEADER_FG);
+        header.setFont(new Font("SansSerif", Font.BOLD, 11));
+        header.setReorderingAllowed(false);
+
+        this.scrollPane = new JScrollPane(table);
+        scrollPane.setColumnHeaderView(header);
+        scrollPane.setPreferredSize(HISTORY_PANEL_DIMENSION);
+        scrollPane.getViewport().setBackground(ROW_ODD);
+        scrollPane.setBackground(SIDEBAR_BG);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        this.add(scrollPane, BorderLayout.CENTER);
+        this.setBackground(SIDEBAR_BG);
+        this.setVisible(true);
     }
 
     void redo(final Board board, final MoveLog moveHistory) {
