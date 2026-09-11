@@ -22,6 +22,8 @@ public class GameSetup extends JDialog {
     private JComboBox<String> difficultyCombo;
     private JSpinner customDepthSpinner;
     private JPanel customSpinnerPanel;
+    private JCheckBox clockEnabledBox;
+    private JSpinner minutesSpinner;
 
     GameSetup(final JFrame frame,
               final boolean modal) {
@@ -64,6 +66,17 @@ public class GameSetup extends JDialog {
         customSpinnerPanel.add(customDepthSpinner, BorderLayout.CENTER);
         customSpinnerPanel.setVisible(false);
         myPanel.add(customSpinnerPanel);
+
+        // ── Time control ─────────────────────────────────────────────
+        myPanel.add(new JLabel("Time Control"));
+        clockEnabledBox = new JCheckBox("Enable Clock", true);
+        myPanel.add(clockEnabledBox);
+        minutesSpinner = new JSpinner(new SpinnerNumberModel(10, 1, 180, 1));
+        final JPanel clockRow = new JPanel(new BorderLayout());
+        clockRow.add(new JLabel("Minutes per side"), BorderLayout.WEST);
+        clockRow.add(minutesSpinner, BorderLayout.CENTER);
+        myPanel.add(clockRow);
+        clockEnabledBox.addActionListener(e -> minutesSpinner.setEnabled(clockEnabledBox.isSelected()));
 
         difficultyCombo.addActionListener(e -> {
             final boolean isCustom = difficultyCombo.getSelectedIndex() == DIFFICULTY_LABELS.length - 1;
@@ -129,6 +142,14 @@ public class GameSetup extends JDialog {
         customDepthSpinner.setValue(customDepth);
         final boolean isCustom = safeIndex == DIFFICULTY_LABELS.length - 1;
         customSpinnerPanel.setVisible(isCustom);
+    }
+
+    boolean isClockEnabled() {
+        return clockEnabledBox.isSelected();
+    }
+
+    int getClockMinutes() {
+        return (int) minutesSpinner.getValue();
     }
 
     PlayerType getWhitePlayerType() {

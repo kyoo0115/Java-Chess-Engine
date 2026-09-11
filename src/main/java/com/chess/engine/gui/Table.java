@@ -15,8 +15,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -45,6 +45,7 @@ public class Table {
     private final TakenPiecesPanel takenPiecesPanel;
     private final GameSetup gameSetup;
     private final JLabel statusLabel;
+    private final ClockPanel clockPanel;
     // ── Per-instance scaled caches (rebuilt on board resize) ──────────
     private Map<String, BufferedImage> SCALED_IMAGE_CACHE = new HashMap<>();
     private Map<String, BufferedImage> DRAG_IMAGE_CACHE = new HashMap<>();
@@ -71,6 +72,11 @@ public class Table {
     // AI move arrow overlay
     private int arrowSource = -1;
     private int arrowDest = -1;
+    // AI piece animation
+    private BufferedImage animPiece = null;
+    private float animFromX, animFromY, animToX, animToY;
+    private float animProgress = 0f;
+    private javax.swing.Timer animTimer = null;
 
     public Table() {
         gameFrame = new JFrame("JChess");
@@ -96,6 +102,7 @@ public class Table {
         gameFrame.setMinimumSize(new Dimension(640, 520));
 
         boardPanel = new BoardPanel();
+        clockPanel = new ClockPanel();
 
         statusLabel = new JLabel("White to move", SwingConstants.CENTER);
         statusLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
@@ -105,6 +112,7 @@ public class Table {
         gameFrame.add(boardPanel, BorderLayout.CENTER);
         gameFrame.add(gameHistoryPanel, BorderLayout.EAST);
         gameFrame.add(statusLabel, BorderLayout.SOUTH);
+        gameFrame.add(clockPanel, BorderLayout.NORTH);
 
         boardDirection = BoardDirection.NORMAL;
 
@@ -197,6 +205,18 @@ public class Table {
             setupAfterGameSetup();
         });
         menu.add(setup);
+
+        menu.addSeparator();
+
+        final JMenuItem save = new JMenuItem("Save Game…");
+        save.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        save.addActionListener(e -> saveGame());
+        menu.add(save);
+
+        final JMenuItem load = new JMenuItem("Load Game…");
+        load.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        load.addActionListener(e -> loadGame());
+        menu.add(load);
 
         menu.addSeparator();
         final JMenuItem exit = new JMenuItem("Exit");
@@ -321,6 +341,119 @@ public class Table {
         });
     }
 
+    private void saveGame() {
+        final JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Save Game as PGN");
+        fc.setSelectedFile(new File("game.pgn"));
+        if (fc.showSaveDialog(gameFrame) != JFileChooser.APPROVE_OPTION) return;
+
+        final File file = fc.getSelectedFile();
+        try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
+            // PGN headers
+            pw.println("[Event \"JChess Game\"]");
+            pw.println("[Date \"" + LocalDate.now() + "\"]");
+            pw.println("[White \"" + (gameSetup.getWhitePlayerType() == Table.PlayerType.HUMAN ? "Human" : "Computer") + "\"]");
+            pw.println("[Black \"" + (gameSetup.getBlackPlayerType() == Table.PlayerType.HUMAN ? "Human" : "Computer") + "\"]");
+            pw.println("[Result \"*\"]");
+            pw.println();
+
+            // Move text: "1. e4 e5 2. Nf3 ..."
+            final StringBuilder sb = new StringBuilder();
+            final List<Move> moves = moveLog.getMoves();
+            for (int i = 0; i < moves.size(); i++) {
+                if (i % 2 == 0) sb.append(i / 2 + 1).append(". ");
+                sb.append(moves.get(i).toString()).append(' ');
+            }
+            // Wrap at ~80 chars
+            final String text = sb.toString().trim();
+            int pos = 0;
+            while (pos < text.length()) {
+                int end = Math.min(pos + 80, text.length());
+                if (end < text.length()) {
+                    final int space = text.lastIndexOf(' ', end);
+                    if (space > pos) end = space;
+                }
+                pw.println(text.substring(pos, end).trim());
+                pos = end;
+            }
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(gameFrame, "Failed to save: " + ex.getMessage(),
+                    "Save Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void loadGame() {
+        final JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Load PGN File");
+        if (fc.showOpenDialog(gameFrame) != JFileChooser.APPROVE_OPTION) return;
+
+        final File file = fc.getSelectedFile();
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            // Collect non-header lines
+            final StringBuilder moveSb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                final String trimmed = line.trim();
+                if (trimmed.startsWith("[") || trimmed.isEmpty()) continue;
+                moveSb.append(trimmed).append(' ');
+            }
+
+            // Strip move numbers (e.g. "1." "12."), result tokens, and annotations
+            final String[] tokens = moveSb.toString().split("\\s+");
+            Board replayBoard = Board.createStandardBoard();
+            final List<Move> loaded = new ArrayList<>();
+            for (final String token : tokens) {
+                if (token.isEmpty()) continue;
+                if (token.matches("\\d+\\.+")) continue;           // move numbers
+                if (token.matches("\\$\\d+")) continue;            // NAG annotations
+                if (token.matches("[01½][-/][01½]|\\*")) continue; // results
+                // Strip trailing check/checkmate symbols for matching
+                final String san = token.replaceAll("[+#!?]", "");
+                // Find the legal move whose toString() (also stripped) matches
+                Move matched = null;
+                for (final Move m : replayBoard.getCurrentPlayer().getLegalMoves()) {
+                    if (m.toString().replaceAll("[+#!?]", "").equals(san)) {
+                        matched = m;
+                        break;
+                    }
+                }
+                if (matched == null) break; // unrecognised token — stop
+                final MoveTransition t = replayBoard.getCurrentPlayer().makeMove(matched);
+                if (!t.getMoveStatus().isDone()) break;
+                replayBoard = t.getTransitionBoard();
+                loaded.add(matched);
+            }
+
+            if (loaded.isEmpty()) {
+                JOptionPane.showMessageDialog(gameFrame, "No valid moves found in file.",
+                        "Load Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Apply loaded game
+            chessBoard = replayBoard;
+            moveLog.clear();
+            for (final Move m : loaded) moveLog.addMove(m);
+            final Move last = loaded.get(loaded.size() - 1);
+            lastMoveSource = last.getCurrentCoordinate();
+            lastMoveDest   = last.getDestinationCoordinate();
+            arrowSource = lastMoveSource;
+            arrowDest   = lastMoveDest;
+            sourceTile = null; destinationTile = null; humanMovedPiece = null;
+            dragImage = null; dragPoint = null; dragSourceTileId = -1;
+            hoverTileId = -1; gameOver = false;
+            SwingUtilities.invokeLater(() -> {
+                gameHistoryPanel.redo(chessBoard, moveLog);
+                takenPiecesPanel.redo(moveLog);
+                boardPanel.drawBoard(chessBoard);
+                updateStatus();
+            });
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(gameFrame, "Failed to load: " + ex.getMessage(),
+                    "Load Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void resetGame() {
         chessBoard = Board.createStandardBoard();
         moveLog.clear();
@@ -336,6 +469,7 @@ public class Table {
         arrowSource = -1;
         arrowDest = -1;
         gameOver = false;
+        clockPanel.reset(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
             gameHistoryPanel.redo(chessBoard, moveLog);
             takenPiecesPanel.redo(moveLog);
@@ -351,6 +485,7 @@ public class Table {
     private void setupAfterGameSetup() {
         PREFS.putInt("difficultyIndex", gameSetup.getDifficultyIndex());
         PREFS.putInt("customDepth", gameSetup.getCustomDepth());
+        clockPanel.configure(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
             if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
         });
@@ -461,6 +596,7 @@ public class Table {
         boardPanel.drawBoard(chessBoard);
         updateStatus();
         checkGameOver();
+        if (!gameOver) clockPanel.onMoveMade(chessBoard.getCurrentPlayer().getAlliance());
         if (!gameOver && gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
     }
 
@@ -471,6 +607,7 @@ public class Table {
         if (!mate && !stale) return;
 
         gameOver = true;
+        clockPanel.stop();
         SoundManager.play(SoundManager.SoundType.GAME_END);
 
         final String msg = mate
@@ -592,15 +729,51 @@ public class Table {
             gameFrame.setCursor(Cursor.getDefaultCursor());
             try {
                 final Move m = get();
-                if (m != null) {
-                    tryMove(m.getCurrentCoordinate(), m.getDestinationCoordinate());
-                    arrowSource = m.getCurrentCoordinate();
-                    arrowDest = m.getDestinationCoordinate();
-                }
+                if (m == null) { afterMoveRefresh(); return; }
+
+                // ── Set up animation before committing the move ───────
+                final int fromId = m.getCurrentCoordinate();
+                final int toId   = m.getDestinationCoordinate();
+                final Piece piece = chessBoard.getTile(fromId).getPiece();
+                final String key  = String.valueOf(piece.getPieceAlliance().toString().charAt(0)) + piece;
+                animPiece = SCALED_IMAGE_CACHE.getOrDefault(key, RAW_IMAGE_CACHE.get(key));
+
+                final int tw = boardPanel.getWidth() / 8;
+                final int th = boardPanel.getHeight() / 8;
+                final int fromDisp = (boardDirection == BoardDirection.FLIPPED) ? (63 - fromId) : fromId;
+                final int toDisp   = (boardDirection == BoardDirection.FLIPPED) ? (63 - toId)   : toId;
+                animFromX = (fromDisp % 8) * tw;
+                animFromY = (fromDisp / 8) * th;
+                animToX   = (toDisp % 8) * tw;
+                animToY   = (toDisp / 8) * th;
+                animProgress = 0f;
+
+                // Hide piece from its source tile during animation
+                dragSourceTileId = fromId;
+                boardPanel.drawBoard(chessBoard);
+
+                final int FRAMES = 10;
+                final float step = 1f / FRAMES;
+                animTimer = new javax.swing.Timer(15, null);
+                animTimer.addActionListener(ae -> {
+                    animProgress = Math.min(1f, animProgress + step);
+                    boardPanel.repaint();
+                    if (animProgress >= 1f) {
+                        animTimer.stop();
+                        animPiece = null;
+                        dragSourceTileId = -1;
+                        tryMove(fromId, toId);
+                        arrowSource = fromId;
+                        arrowDest   = toId;
+                        afterMoveRefresh();
+                    }
+                });
+                animTimer.start();
+
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
+                afterMoveRefresh();
             }
-            afterMoveRefresh();
         }
     }
 
@@ -792,6 +965,17 @@ public class Table {
                 final int tileH = getHeight() / 8;
                 g2.drawImage(dragImage, dragPoint.x - tileW / 2, dragPoint.y - tileH / 2,
                         tileW, tileH, this);
+            }
+
+            // ── AI piece animation ────────────────────────────────────
+            if (animPiece != null) {
+                final int tileW = getWidth() / 8;
+                final int tileH = getHeight() / 8;
+                // Ease-out: smooth deceleration towards destination
+                final float t = 1f - (1f - animProgress) * (1f - animProgress);
+                final int px = Math.round(animFromX + (animToX - animFromX) * t);
+                final int py = Math.round(animFromY + (animToY - animFromY) * t);
+                g2.drawImage(animPiece, px, py, tileW, tileH, this);
             }
 
             // ── AI move arrow ─────────────────────────────────────────
@@ -1045,6 +1229,126 @@ public class Table {
                 g2.setColor(new Color(0, 0, 0, 80));
                 g2.fillOval(cx, cy, r * 2, r * 2);
             }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  ClockPanel — two countdown clocks, one per side
+    // ─────────────────────────────────────────────────────────────────
+
+    private class ClockPanel extends JPanel {
+
+        private final JLabel whiteLabel = new JLabel("10:00", SwingConstants.CENTER);
+        private final JLabel blackLabel = new JLabel("10:00", SwingConstants.CENTER);
+        private int whiteSeconds = 600;
+        private int blackSeconds = 600;
+        private boolean whiteActive = false; // whose clock is ticking
+        private boolean enabled = true;
+        private final javax.swing.Timer ticker;
+
+        ClockPanel() {
+            super(new GridLayout(1, 2));
+            final Font f = new Font("Monospaced", Font.BOLD, 16);
+            whiteLabel.setFont(f);
+            blackLabel.setFont(f);
+            whiteLabel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color.GRAY),
+                    BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+            blackLabel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color.GRAY),
+                    BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+            add(new JLabel("White", SwingConstants.RIGHT));
+            add(whiteLabel);
+            add(blackLabel);
+            add(new JLabel("Black", SwingConstants.LEFT));
+            setLayout(new GridLayout(1, 4));
+            ticker = new javax.swing.Timer(1000, e -> tick());
+            ticker.setInitialDelay(1000);
+        }
+
+        /** Called by setupAfterGameSetup when settings change mid-game. */
+        void configure(final boolean on, final int minutes) {
+            ticker.stop();
+            enabled = on;
+            final int secs = minutes * 60;
+            whiteSeconds = secs;
+            blackSeconds = secs;
+            whiteActive = false;
+            updateLabels();
+            setVisible(on);
+        }
+
+        /** Called by resetGame — resets to new configured time and stops. */
+        void reset(final boolean on, final int minutes) {
+            configure(on, minutes);
+        }
+
+        /** Called after each move to swap the active clock. */
+        void onMoveMade(final com.chess.engine.Alliance nowToMove) {
+            if (!enabled) return;
+            // The player who just moved is the opponent of nowToMove
+            whiteActive = nowToMove.isWhite(); // white's turn → white clock ticks
+            if (!ticker.isRunning()) ticker.start();
+        }
+
+        void stop() {
+            ticker.stop();
+        }
+
+        private void tick() {
+            if (!enabled) return;
+            if (whiteActive) {
+                whiteSeconds--;
+                if (whiteSeconds <= 0) {
+                    whiteSeconds = 0;
+                    ticker.stop();
+                    updateLabels();
+                    onTimeout(true);
+                    return;
+                }
+            } else {
+                blackSeconds--;
+                if (blackSeconds <= 0) {
+                    blackSeconds = 0;
+                    ticker.stop();
+                    updateLabels();
+                    onTimeout(false);
+                    return;
+                }
+            }
+            updateLabels();
+        }
+
+        private void onTimeout(final boolean whiteTimedOut) {
+            gameOver = true;
+            SoundManager.play(SoundManager.SoundType.GAME_END);
+            final String winner = whiteTimedOut ? "Black" : "White";
+            final int choice = JOptionPane.showOptionDialog(gameFrame,
+                    (whiteTimedOut ? "White" : "Black") + " ran out of time!  " + winner + " wins!",
+                    "Time Out", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE,
+                    null, new Object[]{"New Game", "Close"}, "New Game");
+            if (choice == JOptionPane.YES_OPTION) resetGame();
+        }
+
+        private void updateLabels() {
+            whiteLabel.setText(formatTime(whiteSeconds));
+            blackLabel.setText(formatTime(blackSeconds));
+            // Highlight active clock; flash red when under 10 seconds
+            final Color activeCol = new Color(200, 240, 200);
+            final Color warnCol   = new Color(255, 100, 100);
+            final Color idleCol   = getBackground();
+            whiteLabel.setBackground(whiteActive
+                    ? (whiteSeconds <= 10 ? warnCol : activeCol) : idleCol);
+            blackLabel.setBackground(!whiteActive
+                    ? (blackSeconds <= 10 ? warnCol : activeCol) : idleCol);
+            whiteLabel.setOpaque(whiteActive || whiteSeconds <= 10);
+            blackLabel.setOpaque(!whiteActive || blackSeconds <= 10);
+        }
+
+        private String formatTime(final int totalSeconds) {
+            final int m = totalSeconds / 60;
+            final int s = totalSeconds % 60;
+            return String.format("%02d:%02d", m, s);
         }
     }
 }
