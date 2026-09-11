@@ -17,7 +17,8 @@ import java.util.List;
  */
 public final class PgnUtils {
 
-    private PgnUtils() {}
+    private PgnUtils() {
+    }
 
     public static void saveGame(final JFrame parent, final MoveLog moveLog, final GameSetup gameSetup) {
         final JFileChooser fc = new JFileChooser();

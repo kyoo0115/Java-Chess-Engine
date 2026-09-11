@@ -12,14 +12,14 @@ import java.awt.*;
 class ClockPanel extends JPanel {
 
     // ── Palette (light theme) ─────────────────────────────────────────────
-    private static final Color BG_CARD_IDLE    = new Color(240, 240, 242);
-    private static final Color BG_CARD_ACTIVE  = new Color(255, 255, 255);
-    private static final Color BG_CARD_WARN    = new Color(255, 220, 220);
-    private static final Color TEXT_IDLE       = new Color(140, 140, 148);
-    private static final Color TEXT_ACTIVE     = new Color(30,  30,  30);
-    private static final Color TEXT_WARN       = new Color(180, 30,  30);
-    private static final Color NAME_COLOR      = new Color(140, 140, 148);
-    private static final Color BORDER_ACTIVE   = new Color(60,  140, 60);
+    private static final Color BG_CARD_IDLE = new Color(240, 240, 242);
+    private static final Color BG_CARD_ACTIVE = new Color(255, 255, 255);
+    private static final Color BG_CARD_WARN = new Color(255, 220, 220);
+    private static final Color TEXT_IDLE = new Color(140, 140, 148);
+    private static final Color TEXT_ACTIVE = new Color(30, 30, 30);
+    private static final Color TEXT_WARN = new Color(180, 30, 30);
+    private static final Color NAME_COLOR = new Color(140, 140, 148);
+    private static final Color BORDER_ACTIVE = new Color(60, 140, 60);
 
     // ── Widgets ───────────────────────────────────────────────────────────
     private final JPanel whiteCard;
@@ -28,16 +28,14 @@ class ClockPanel extends JPanel {
     private final JLabel blackTimeLabel;
     private final JLabel whiteNameLabel;
     private final JLabel blackNameLabel;
-
+    private final Runnable onWhiteTimeout;
+    private final Runnable onBlackTimeout;
+    private final javax.swing.Timer ticker;
     // ── State ─────────────────────────────────────────────────────────────
     private int whiteSeconds = 600;
     private int blackSeconds = 600;
     private boolean whiteActive = false;
     private boolean enabled = true;
-
-    private final Runnable onWhiteTimeout;
-    private final Runnable onBlackTimeout;
-    private final javax.swing.Timer ticker;
 
     ClockPanel(final Runnable onWhiteTimeout, final Runnable onBlackTimeout) {
         super(new GridLayout(2, 1, 0, 6));
@@ -102,6 +100,35 @@ class ClockPanel extends JPanel {
 
     // ── Public API ────────────────────────────────────────────────────────
 
+    private static void styleCard(final JPanel card, final JLabel timeLabel,
+                                  final JLabel nameLabel, final boolean active,
+                                  final int seconds) {
+        final boolean warn = seconds <= 10;
+        if (warn) {
+            card.setBackground(BG_CARD_WARN);
+            timeLabel.setForeground(TEXT_WARN);
+            nameLabel.setForeground(TEXT_WARN);
+            card.setBorder(BorderFactory.createEmptyBorder());
+        } else if (active) {
+            card.setBackground(BG_CARD_ACTIVE);
+            timeLabel.setForeground(TEXT_ACTIVE);
+            nameLabel.setForeground(BORDER_ACTIVE);
+            card.setBorder(BorderFactory.createMatteBorder(2, 2, 2, 2, BORDER_ACTIVE));
+        } else {
+            card.setBackground(BG_CARD_IDLE);
+            timeLabel.setForeground(TEXT_IDLE);
+            nameLabel.setForeground(NAME_COLOR);
+            card.setBorder(BorderFactory.createEmptyBorder());
+        }
+        card.repaint();
+    }
+
+    private static String formatTime(final int totalSeconds) {
+        final int m = totalSeconds / 60;
+        final int s = totalSeconds % 60;
+        return String.format("%02d:%02d", m, s);
+    }
+
     void configure(final boolean on, final int minutes) {
         ticker.stop();
         enabled = on;
@@ -117,6 +144,8 @@ class ClockPanel extends JPanel {
         configure(on, minutes);
     }
 
+    // ── Tick ──────────────────────────────────────────────────────────────
+
     void onMoveMade(final com.chess.engine.Alliance nowToMove) {
         if (!enabled) return;
         whiteActive = nowToMove.isWhite();
@@ -124,11 +153,11 @@ class ClockPanel extends JPanel {
         updateLabels();
     }
 
+    // ── Rendering ─────────────────────────────────────────────────────────
+
     void stop() {
         ticker.stop();
     }
-
-    // ── Tick ──────────────────────────────────────────────────────────────
 
     private void tick() {
         if (!enabled) return;
@@ -154,42 +183,11 @@ class ClockPanel extends JPanel {
         updateLabels();
     }
 
-    // ── Rendering ─────────────────────────────────────────────────────────
-
     private void updateLabels() {
         whiteTimeLabel.setText(formatTime(whiteSeconds));
         blackTimeLabel.setText(formatTime(blackSeconds));
 
         styleCard(whiteCard, whiteTimeLabel, whiteNameLabel, whiteActive, whiteSeconds);
         styleCard(blackCard, blackTimeLabel, blackNameLabel, !whiteActive, blackSeconds);
-    }
-
-    private static void styleCard(final JPanel card, final JLabel timeLabel,
-                                   final JLabel nameLabel, final boolean active,
-                                   final int seconds) {
-        final boolean warn = seconds <= 10;
-        if (warn) {
-            card.setBackground(BG_CARD_WARN);
-            timeLabel.setForeground(TEXT_WARN);
-            nameLabel.setForeground(TEXT_WARN);
-            card.setBorder(BorderFactory.createEmptyBorder());
-        } else if (active) {
-            card.setBackground(BG_CARD_ACTIVE);
-            timeLabel.setForeground(TEXT_ACTIVE);
-            nameLabel.setForeground(BORDER_ACTIVE);
-            card.setBorder(BorderFactory.createMatteBorder(2, 2, 2, 2, BORDER_ACTIVE));
-        } else {
-            card.setBackground(BG_CARD_IDLE);
-            timeLabel.setForeground(TEXT_IDLE);
-            nameLabel.setForeground(NAME_COLOR);
-            card.setBorder(BorderFactory.createEmptyBorder());
-        }
-        card.repaint();
-    }
-
-    private static String formatTime(final int totalSeconds) {
-        final int m = totalSeconds / 60;
-        final int s = totalSeconds % 60;
-        return String.format("%02d:%02d", m, s);
     }
 }

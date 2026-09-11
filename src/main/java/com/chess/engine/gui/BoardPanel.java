@@ -5,14 +5,16 @@ import com.chess.engine.util.BoardUtils;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import static javax.swing.SwingUtilities.isLeftMouseButton;
 import static javax.swing.SwingUtilities.isRightMouseButton;
 
 /**
@@ -119,7 +121,7 @@ class BoardPanel extends JPanel {
                 if (rcPressId >= 0) {
                     // Toggle: remove existing annotation with same coordinates, or add new one
                     final int from = rcPressId;
-                    final int to   = releaseId;
+                    final int to = releaseId;
                     boolean removed = annotations.removeIf(a -> a[0] == from && a[1] == to);
                     if (!removed) annotations.add(new int[]{from, to});
                     rcPressId = -1;
@@ -183,7 +185,7 @@ class BoardPanel extends JPanel {
         g2.setColor(ANNOTATION_COLOR);
         for (final int[] ann : annotations) {
             if (ann[0] == ann[1]) paintAnnotationCircle(g2, ann[0]);
-            else                  paintAnnotationArrow(g2, ann[0], ann[1]);
+            else paintAnnotationArrow(g2, ann[0], ann[1]);
         }
 
         // ── Coordinate labels ─────────────────────────────────────────
@@ -197,7 +199,7 @@ class BoardPanel extends JPanel {
         final int th = getHeight() / 8;
 
         final int fromDisplay = (ctx.getBoardDirection() == BoardDirection.FLIPPED) ? (63 - fromId) : fromId;
-        final int toDisplay   = (ctx.getBoardDirection() == BoardDirection.FLIPPED) ? (63 - toId)   : toId;
+        final int toDisplay = (ctx.getBoardDirection() == BoardDirection.FLIPPED) ? (63 - toId) : toId;
 
         final int x1 = (fromDisplay % 8) * tw + tw / 2;
         final int y1 = (fromDisplay / 8) * th + th / 2;
@@ -216,12 +218,12 @@ class BoardPanel extends JPanel {
         final int sx2 = (int) (x2 - headLen * cos);
         final int sy2 = (int) (y2 - headLen * sin);
         final int[] shaftXs = {
-            (int) (x1 - shaftW * sin), (int) (x1 + shaftW * sin),
-            (int) (sx2 + shaftW * sin), (int) (sx2 - shaftW * sin)
+                (int) (x1 - shaftW * sin), (int) (x1 + shaftW * sin),
+                (int) (sx2 + shaftW * sin), (int) (sx2 - shaftW * sin)
         };
         final int[] shaftYs = {
-            (int) (y1 + shaftW * cos), (int) (y1 - shaftW * cos),
-            (int) (sy2 - shaftW * cos), (int) (sy2 + shaftW * cos)
+                (int) (y1 + shaftW * cos), (int) (y1 - shaftW * cos),
+                (int) (sy2 - shaftW * cos), (int) (sy2 + shaftW * cos)
         };
         g2.fillPolygon(shaftXs, shaftYs, 4);
 
@@ -248,7 +250,7 @@ class BoardPanel extends JPanel {
         final int tw = getWidth() / 8;
         final int th = getHeight() / 8;
         final int fromDisp = (ctx.getBoardDirection() == BoardDirection.FLIPPED) ? (63 - fromId) : fromId;
-        final int toDisp   = (ctx.getBoardDirection() == BoardDirection.FLIPPED) ? (63 - toId)   : toId;
+        final int toDisp = (ctx.getBoardDirection() == BoardDirection.FLIPPED) ? (63 - toId) : toId;
 
         final int x1 = (fromDisp % 8) * tw + tw / 2;
         final int y1 = (fromDisp / 8) * th + th / 2;
@@ -259,18 +261,18 @@ class BoardPanel extends JPanel {
         final double cos = Math.cos(angle);
         final double sin = Math.sin(angle);
 
-        final int shaftW  = Math.max(2, tw / 10);
+        final int shaftW = Math.max(2, tw / 10);
         final int headLen = Math.max(8, tw / 4);
-        final int headW   = Math.max(5, tw / 4);
+        final int headW = Math.max(5, tw / 4);
         final int sx2 = (int) (x2 - headLen * cos);
         final int sy2 = (int) (y2 - headLen * sin);
         final int[] shaftXs = {
-            (int) (x1 - shaftW * sin), (int) (x1 + shaftW * sin),
-            (int) (sx2 + shaftW * sin), (int) (sx2 - shaftW * sin)
+                (int) (x1 - shaftW * sin), (int) (x1 + shaftW * sin),
+                (int) (sx2 + shaftW * sin), (int) (sx2 - shaftW * sin)
         };
         final int[] shaftYs = {
-            (int) (y1 + shaftW * cos), (int) (y1 - shaftW * cos),
-            (int) (sy2 - shaftW * cos), (int) (sy2 + shaftW * cos)
+                (int) (y1 + shaftW * cos), (int) (y1 - shaftW * cos),
+                (int) (sy2 - shaftW * cos), (int) (sy2 + shaftW * cos)
         };
         g2.fillPolygon(shaftXs, shaftYs, 4);
 

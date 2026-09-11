@@ -7,30 +7,35 @@ A fully-featured chess game written in Java with a Swing GUI and a built-in AI o
 - **Full chess rules** — all standard moves including castling, en passant, and pawn promotion
 - **Drag-and-drop or click-to-move** input on the board
 - **Pawn promotion dialog** — choose Queen, Rook, Bishop, or Knight via a piece-icon dialog
-- **AI opponent** powered by Minimax with alpha-beta pruning, transposition table, killer moves, quiescence search, and MVV-LVA move ordering
-- **Difficulty presets** — Easy (depth 2), Medium (depth 4), Hard (depth 6), Master (depth 8), or Custom depth via Game Setup
+- **AI opponent** powered by Minimax with alpha-beta pruning, transposition table, killer moves, quiescence search, and
+  MVV-LVA move ordering
+- **Difficulty presets** — Easy (depth 2), Medium (depth 4), Hard (depth 6), Master (depth 8), or Custom depth via Game
+  Setup
 - **Endgame-aware evaluation** — switches to a centralisation king PST when material drops below ~1300 cp
 - **Move arrow overlay** — a chess.com-style orange arrow shows the last move played (for both human and AI moves)
 - **Red king highlight** — the king's tile is tinted red when in check
-- **Undo / Take-back** — File → Undo (or Ctrl+Z) takes back the last move (2 plies in Human vs Computer, 1 in Human vs Human)
+- **Undo / Take-back** — File → Undo (or Ctrl+Z) takes back the last move (2 plies in Human vs Computer, 1 in Human vs
+  Human)
 - **Sound effects** — move, capture, check, castle, and game-end sounds via MP3 files (lichess open-source audio)
 - **Three board themes** — Classic, Green, Blue
-- **Optional visual aids** — legal-move dots on click/hover, last-move highlight, selected-tile highlight, board coordinate labels
+- **Optional visual aids** — legal-move dots on click/hover, last-move highlight, selected-tile highlight, board
+  coordinate labels
 - **Flip board** — view from either side
 - **Game history panel** — scrollable move list in algebraic-style notation
 - **Taken pieces panel** — captured pieces displayed per side with material advantage
 - **Configurable player types** — each side can be Human or Computer independently
-- **Persistent preferences** — board theme, sound, highlights, coordinates, and difficulty are saved across sessions (no config file needed — uses the JDK `Preferences` API)
+- **Persistent preferences** — board theme, sound, highlights, coordinates, and difficulty are saved across sessions (no
+  config file needed — uses the JDK `Preferences` API)
 
 ## Requirements
 
-| Dependency | Version |
-|---|---|
-| Java | 17 or later |
-| Gradle (wrapper included) | 9.x |
-| Google Guava | 33.0.0-jre |
-| imgscalr | 4.2 |
-| JUnit Jupiter (tests) | 5.10.0 |
+| Dependency                | Version     |
+|---------------------------|-------------|
+| Java                      | 17 or later |
+| Gradle (wrapper included) | 9.x         |
+| Google Guava              | 33.0.0-jre  |
+| imgscalr                  | 4.2         |
+| JUnit Jupiter (tests)     | 5.10.0      |
 
 No additional downloads are needed; the Gradle wrapper (`gradlew`) handles all dependencies automatically.
 
@@ -60,27 +65,28 @@ Or run the compiled `Main` class directly from your IDE (`src/main/java/org/exam
 ### Game Setup
 
 Open **File → Game Setup…** to:
+
 - Set White and Black to **Human** or **Computer**
 - Choose a **Difficulty** preset (Easy / Medium / Hard / Master / Custom)
 
 ### Preferences
 
-| Option | Description |
-|---|---|
-| Flip Board | Swap which side is at the bottom |
-| Highlight Legal Moves | Show dots on legal squares after clicking a piece |
-| Highlight on Hover | Show dots on legal squares when hovering over a piece |
-| Show Coordinates | Overlay rank and file labels (a–h, 1–8) on the board |
-| Board Theme | Choose Classic, Green, or Blue colour scheme |
-| Sound Effects | Toggle move sounds on/off |
+| Option                | Description                                           |
+|-----------------------|-------------------------------------------------------|
+| Flip Board            | Swap which side is at the bottom                      |
+| Highlight Legal Moves | Show dots on legal squares after clicking a piece     |
+| Highlight on Hover    | Show dots on legal squares when hovering over a piece |
+| Show Coordinates      | Overlay rank and file labels (a–h, 1–8) on the board  |
+| Board Theme           | Choose Classic, Green, or Blue colour scheme          |
+| Sound Effects         | Toggle move sounds on/off                             |
 
 All preferences are saved automatically and restored on next launch.
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| Ctrl+Z | Undo last move |
+| Shortcut | Action         |
+|----------|----------------|
+| Ctrl+Z   | Undo last move |
 
 ## Project Structure
 
@@ -122,29 +128,32 @@ src/main/java/com/chess/engine/
 
 ## AI — How It Works
 
-The computer uses **Minimax search with alpha-beta pruning** ([`Minimax.java`](src/main/java/com/chess/engine/player/ai/Minimax.java)).
+The computer uses **Minimax search with alpha-beta pruning** ([
+`Minimax.java`](src/main/java/com/chess/engine/player/ai/Minimax.java)).
 
 Additional optimisations:
+
 - **Transposition table** — Zobrist-hashed cache with EXACT / LOWER_BOUND / UPPER_BOUND flags
 - **Killer move heuristic** — 2 killer slots per ply
 - **Quiescence search** — captures-only extension up to 4 plies with stand-pat pruning
 - **MVV-LVA move ordering** — most-valuable-victim / least-valuable-attacker capture ordering
 
-Each board position is scored by [`StandardBoardEvaluator`](src/main/java/com/chess/engine/player/ai/StandardBoardEvaluator.java) as:
+Each board position is scored by [
+`StandardBoardEvaluator`](src/main/java/com/chess/engine/player/ai/StandardBoardEvaluator.java) as:
 
 ```
 score = Σ White(material + PST bonus + mobility + check + checkmate + castling)
       − Σ Black(same terms)
 ```
 
-| Term | Description |
-|---|---|
-| Material | Piece values in centipawns (Pawn=100, Knight/Bishop=300, Rook=500, Queen=800, King=10000) |
+| Term                | Description                                                                                            |
+|---------------------|--------------------------------------------------------------------------------------------------------|
+| Material            | Piece values in centipawns (Pawn=100, Knight/Bishop=300, Rook=500, Queen=800, King=10000)              |
 | Piece-Square Tables | Standard positional bonus tables; king uses endgame centralisation table when total material < 1300 cp |
-| Mobility | Number of legal moves available |
-| Check bonus | +45 cp for putting the opponent in check |
-| Checkmate bonus | +10 000 × depth for checkmating the opponent |
-| Castling bonus | +60 cp for having castled |
+| Mobility            | Number of legal moves available                                                                        |
+| Check bonus         | +45 cp for putting the opponent in check                                                               |
+| Checkmate bonus     | +10 000 × depth for checkmating the opponent                                                           |
+| Castling bonus      | +60 cp for having castled                                                                              |
 
 ## License
 

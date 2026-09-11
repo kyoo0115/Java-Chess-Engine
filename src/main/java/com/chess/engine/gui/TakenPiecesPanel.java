@@ -7,7 +7,6 @@ import com.google.common.primitives.Ints;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.border.EtchedBorder;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -16,116 +15,70 @@ import java.util.*;
 import java.util.List;
 
 /**
- * Side panel — chess.com style captured-piece layout.
+ * Chess.com-style captured pieces: two thin horizontal strips placed
+ * above and below the board.
  * <p>
- * Viewing as White (board NORMAL):
- * TOP    → opponent's captures  (white pieces Black took)
- * BOTTOM → your captures        (black pieces White took)
+ * BLACK strip (top)  — white pieces Black captured
+ * WHITE strip (bottom) — black pieces White captured
  * <p>
- * Each half shows piece icons + total points + "+N" advantage for the leading side.
+ * Each strip paints piece icons overlapping slightly, with a green "+N"
+ * advantage pill inline after the last piece.
  */
-public class TakenPiecesPanel extends JPanel {
+public class TakenPiecesPanel {
 
+    // ── Piece values ──────────────────────────────────────────────────────
     private static final int PAWN_VAL = 1;
     private static final int KNIGHT_VAL = 3;
     private static final int BISHOP_VAL = 3;
     private static final int ROOK_VAL = 5;
     private static final int QUEEN_VAL = 9;
 
-    private static final EtchedBorder PANEL_BORDER = new EtchedBorder(EtchedBorder.RAISED);
-    private static final Color PANEL_COLOR = Color.decode("0xFFFDE6");
-    private static final Dimension TAKEN_PIECES_DIMENSION = new Dimension(72, 600);
-    private static final int TAKEN_PIECE_SIZE = 26;
+    // ── Layout constants ──────────────────────────────────────────────────
+    private static final int STRIP_H = 32;   // strip height in pixels
+    private static final int PIECE_SIZE = 22;   // icon render size
+    private static final int OVERLAP = 6;    // each icon overlaps previous by this much
+    private static final int PAD_LEFT = 6;    // left padding before first piece
+    private static final int PILL_H = 16;
+    private static final int PILL_ARC = 8;
+    private static final int PILL_PAD = 5;    // horizontal pill text padding
 
-    /**
-     * Scaled icon cache — loaded once, never re-read from disk on each redo().
-     */
-    private static final Map<String, ImageIcon> ICON_CACHE = buildIconCache();
-    // TOP  = Black's captures (white pieces Black took) — opponent's side of screen
-    private final JPanel topPieces;
-    private final JLabel topScore;
-    private final JLabel topAdv;
-    // BOTTOM = White's captures (black pieces White took) — your side of screen
-    private final JPanel bottomPieces;
-    private final JLabel bottomScore;
-    private final JLabel bottomAdv;
+    // ── Light-theme palette ───────────────────────────────────────────────
+    private static final Color BG_TOP = new Color(245, 245, 248);
+    private static final Color BG_BOT = new Color(245, 245, 248);
+    private static final Color BORDER_COL = new Color(210, 211, 216);
+    private static final Color ADV_PILL_BG = new Color(200, 235, 200);
+    private static final Color ADV_PILL_FG = new Color(25, 100, 25);
+    private static final Font PILL_FONT = new Font("SansSerif", Font.BOLD, 11);
+
+    // ── Icon cache (raw — scaled at paint time for crisp rendering) ───────
+    private static final Map<String, BufferedImage> ICON_CACHE = buildIconCache();
+    // ── The two strip panels ──────────────────────────────────────────────
+    private final Strip topStrip;    // BLACK's captures (white pieces) — above board
+    private final Strip bottomStrip; // WHITE's captures (black pieces) — below board
+    // ── State ─────────────────────────────────────────────────────────────
+    private List<Piece> whiteTaken = new ArrayList<>(); // black pieces White captured
+    private List<Piece> blackTaken = new ArrayList<>(); // white pieces Black captured
+    private int whiteMaterial = 0;
+    private int blackMaterial = 0;
 
     public TakenPiecesPanel() {
-        super(new BorderLayout(0, 4));
-        setBackground(PANEL_COLOR);
-        setBorder(PANEL_BORDER);
-
-        topScore = scoreLabel();
-        topPieces = piecesGrid();
-        topAdv = advLabel();
-
-        bottomScore = scoreLabel();
-        bottomPieces = piecesGrid();
-        bottomAdv = advLabel();
-
-        add(section(topScore, topPieces, topAdv), BorderLayout.NORTH);
-        add(section(bottomScore, bottomPieces, bottomAdv), BorderLayout.SOUTH);
-        setPreferredSize(TAKEN_PIECES_DIMENSION);
+        topStrip = new Strip(BG_TOP,  /* topBorder */ false);
+        bottomStrip = new Strip(BG_BOT,  /* topBorder */ true);
     }
 
-    private static Map<String, ImageIcon> buildIconCache() {
-        final Map<String, ImageIcon> cache = new HashMap<>();
+    private static Map<String, BufferedImage> buildIconCache() {
+        final Map<String, BufferedImage> cache = new HashMap<>();
         for (final String a : new String[]{"W", "B"})
             for (final String s : new String[]{"K", "Q", "R", "B", "N", "P"}) {
                 final String key = a + s;
                 try {
-                    final BufferedImage raw = ImageIO.read(new File("images/" + key + ".png"));
-                    final Image scaled = raw.getScaledInstance(TAKEN_PIECE_SIZE, TAKEN_PIECE_SIZE, Image.SCALE_SMOOTH);
-                    cache.put(key, new ImageIcon(scaled));
+                    cache.put(key, ImageIO.read(new File("images/" + key + ".png")));
                 } catch (final IOException e) {
                     System.err.println("TakenPiecesPanel: missing image " + key + ".png");
                 }
             }
         return Collections.unmodifiableMap(cache);
     }
-
-    // ── Factory helpers ───────────────────────────────────────────────
-
-    private static JLabel scoreLabel() {
-        final JLabel l = new JLabel("", SwingConstants.CENTER);
-        l.setFont(new Font("SansSerif", Font.BOLD, 11));
-        l.setForeground(new Color(60, 60, 60));
-        return l;
-    }
-
-    private static JLabel advLabel() {
-        final JLabel l = new JLabel("", SwingConstants.CENTER);
-        l.setFont(new Font("SansSerif", Font.BOLD, 11));
-        l.setForeground(new Color(40, 120, 40));
-        return l;
-    }
-
-    private static JPanel piecesGrid() {
-        final JPanel p = new JPanel(new GridLayout(0, 2, 0, 0));
-        p.setBackground(Color.decode("0xFFFDE6"));
-        return p;
-    }
-
-    private static JPanel section(final JLabel score, final JPanel pieces, final JLabel adv) {
-        final JPanel s = new JPanel(new BorderLayout(0, 1));
-        s.setBackground(Color.decode("0xFFFDE6"));
-        s.add(score, BorderLayout.NORTH);
-        s.add(pieces, BorderLayout.CENTER);
-        s.add(adv, BorderLayout.SOUTH);
-        return s;
-    }
-
-    // ── Public refresh ────────────────────────────────────────────────
-
-    private static void renderPieces(final List<Piece> pieces, final JPanel panel) {
-        for (final Piece piece : pieces) {
-            final String key = String.valueOf(piece.getPieceAlliance().toString().charAt(0)) + piece;
-            final ImageIcon icon = ICON_CACHE.get(key);
-            if (icon != null) panel.add(new JLabel(icon));
-        }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────
 
     private static int materialScore(final List<Piece> pieces) {
         int total = 0;
@@ -142,14 +95,29 @@ public class TakenPiecesPanel extends JPanel {
         return total;
     }
 
-    public void redo(final MoveLog moveLog) {
-        topPieces.removeAll();
-        bottomPieces.removeAll();
+    // ── Public refresh ────────────────────────────────────────────────────
 
-        // whiteTaken = black pieces White captured → White's captures → BOTTOM (your side)
-        // blackTaken = white pieces Black captured → Black's captures → TOP    (opponent's side)
-        final List<Piece> whiteTaken = new ArrayList<>();
-        final List<Piece> blackTaken = new ArrayList<>();
+    /**
+     * The panel to place above the board (shows Black player's captured pieces).
+     */
+    public JPanel getTopStrip() {
+        return topStrip;
+    }
+
+    // ── Icon cache ────────────────────────────────────────────────────────
+
+    /**
+     * The panel to place below the board (shows White player's captured pieces).
+     */
+    public JPanel getBottomStrip() {
+        return bottomStrip;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+
+    public void redo(final MoveLog moveLog) {
+        whiteTaken = new ArrayList<>();
+        blackTaken = new ArrayList<>();
 
         for (final Move move : moveLog.getMoves()) {
             if (!move.isAttack()) continue;
@@ -161,28 +129,81 @@ public class TakenPiecesPanel extends JPanel {
         whiteTaken.sort((a, b) -> Ints.compare(b.getPieceValue(), a.getPieceValue()));
         blackTaken.sort((a, b) -> Ints.compare(b.getPieceValue(), a.getPieceValue()));
 
-        renderPieces(whiteTaken, bottomPieces);   // White's captures at bottom
-        renderPieces(blackTaken, topPieces);      // Black's captures at top
+        whiteMaterial = materialScore(whiteTaken);
+        blackMaterial = materialScore(blackTaken);
 
-        final int ws = materialScore(whiteTaken);
-        final int bs = materialScore(blackTaken);
+        topStrip.repaint();
+        bottomStrip.repaint();
+    }
 
-        bottomScore.setText(ws > 0 ? ws + " pts" : "");
-        topScore.setText(bs > 0 ? bs + " pts" : "");
+    // ── Inner strip panel ─────────────────────────────────────────────────
 
-        final int diff = ws - bs;
-        if (diff > 0) {
-            bottomAdv.setText("+" + diff);
-            topAdv.setText("");
-        } else if (diff < 0) {
-            bottomAdv.setText("");
-            topAdv.setText("+" + (-diff));
-        } else {
-            bottomAdv.setText("");
-            topAdv.setText("");
+    private class Strip extends JPanel {
+
+        private final boolean topBorder;
+
+        Strip(final Color bg, final boolean topBorder) {
+            this.topBorder = topBorder;
+            setBackground(bg);
+            setOpaque(true);
+            setPreferredSize(new Dimension(0, STRIP_H));
         }
 
-        validate();
-        repaint();
+        /**
+         * True when this strip renders White's captures (bottom strip).
+         */
+        private boolean isWhiteStrip() {
+            return topBorder;
+        }
+
+        @Override
+        protected void paintComponent(final Graphics g) {
+            super.paintComponent(g);
+
+            final List<Piece> pieces = isWhiteStrip() ? whiteTaken : blackTaken;
+            final int material = isWhiteStrip() ? whiteMaterial : blackMaterial;
+            final int opponent = isWhiteStrip() ? blackMaterial : whiteMaterial;
+            final int advantage = material - opponent;
+
+            final Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+
+            // ── Border line ───────────────────────────────────────────
+            g2.setColor(BORDER_COL);
+            if (topBorder) g2.drawLine(0, 0, getWidth(), 0);
+            else g2.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
+
+            // ── Piece icons ───────────────────────────────────────────
+            final int iconY = (STRIP_H - PIECE_SIZE) / 2;
+            int x = PAD_LEFT;
+            for (final Piece piece : pieces) {
+                final String key = String.valueOf(
+                        piece.getPieceAlliance().toString().charAt(0)) + piece;
+                final BufferedImage img = ICON_CACHE.get(key);
+                if (img != null) {
+                    g2.drawImage(img, x, iconY, PIECE_SIZE, PIECE_SIZE, null);
+                    x += PIECE_SIZE - OVERLAP;
+                }
+            }
+
+            // ── Advantage pill ────────────────────────────────────────
+            if (advantage > 0) {
+                x += OVERLAP + 4;
+                final String text = "+" + advantage;
+                g2.setFont(PILL_FONT);
+                final FontMetrics fm = g2.getFontMetrics();
+                final int pillW = fm.stringWidth(text) + PILL_PAD * 2;
+                final int pillY = (STRIP_H - PILL_H) / 2;
+                g2.setColor(ADV_PILL_BG);
+                g2.fillRoundRect(x, pillY, pillW, PILL_H, PILL_ARC, PILL_ARC);
+                g2.setColor(ADV_PILL_FG);
+                g2.drawString(text, x + PILL_PAD,
+                        pillY + (PILL_H - fm.getHeight()) / 2 + fm.getAscent());
+            }
+
+            g2.dispose();
+        }
     }
 }

@@ -96,16 +96,18 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
      */
     private static final int[] KING_ENDGAME_TABLE = {
             -50, -40, -30, -20, -20, -30, -40, -50,
-            -30, -20, -10,   0,   0, -10, -20, -30,
-            -30, -10,  20,  30,  30,  20, -10, -30,
-            -30, -10,  30,  40,  40,  30, -10, -30,
-            -30, -10,  30,  40,  40,  30, -10, -30,
-            -30, -10,  20,  30,  30,  20, -10, -30,
-            -30, -30,   0,   0,   0,   0, -30, -30,
+            -30, -20, -10, 0, 0, -10, -20, -30,
+            -30, -10, 20, 30, 30, 20, -10, -30,
+            -30, -10, 30, 40, 40, 30, -10, -30,
+            -30, -10, 30, 40, 40, 30, -10, -30,
+            -30, -10, 20, 30, 30, 20, -10, -30,
+            -30, -30, 0, 0, 0, 0, -30, -30,
             -50, -30, -30, -30, -30, -30, -30, -50
     };
 
-    /** Material threshold below which the endgame king table is used (~no queens + few pieces). */
+    /**
+     * Material threshold below which the endgame king table is used (~no queens + few pieces).
+     */
     private static final int ENDGAME_MATERIAL_THRESHOLD = 1300;
 
     // ─────────────────────────────────────────────────────────────────

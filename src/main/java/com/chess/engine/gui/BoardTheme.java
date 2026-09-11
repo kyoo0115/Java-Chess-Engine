@@ -1,6 +1,6 @@
 package com.chess.engine.gui;
 
-import java.awt.Color;
+import java.awt.*;
 
 public enum BoardTheme {
     CLASSIC("Classic", "#F0D9B5", "#B58863", "#F6F669", "#CDD16E", "#AABA44"),

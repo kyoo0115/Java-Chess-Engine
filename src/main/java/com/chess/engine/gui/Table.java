@@ -2,8 +2,8 @@ package com.chess.engine.gui;
 
 import com.chess.engine.Alliance;
 import com.chess.engine.board.Board;
-import com.chess.engine.board.MoveLog;
 import com.chess.engine.board.Move;
+import com.chess.engine.board.MoveLog;
 import com.chess.engine.board.Tile;
 import com.chess.engine.pieces.*;
 import com.chess.engine.player.MoveTransition;
@@ -12,12 +12,17 @@ import com.chess.engine.player.ai.Minimax;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.prefs.Preferences;
 
@@ -109,15 +114,19 @@ public class Table implements TableContext {
 
         statusLabel = new JLabel("White to move", SwingConstants.CENTER);
         statusLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-        statusLabel.setForeground(new Color(200, 200, 200));
-        statusLabel.setBackground(new Color(30, 30, 30));
+        statusLabel.setForeground(new Color(50, 50, 60));
+        statusLabel.setBackground(new Color(235, 236, 240));
         statusLabel.setOpaque(true);
-        statusLabel.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
+        statusLabel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(210, 211, 216)),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)));
 
         // ── Right sidebar: clock cards + move history ─────────────────
         final JPanel rightSidebar = new JPanel(new BorderLayout(0, 0));
-        rightSidebar.setBackground(new Color(30, 30, 30));
-        rightSidebar.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
+        rightSidebar.setBackground(new Color(248, 248, 250));
+        rightSidebar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(210, 211, 216)),
+                BorderFactory.createEmptyBorder(6, 6, 6, 6)));
         rightSidebar.add(clockPanel, BorderLayout.NORTH);
         rightSidebar.add(gameHistoryPanel, BorderLayout.CENTER);
 
@@ -142,33 +151,6 @@ public class Table implements TableContext {
 
     // ── TableContext implementation ───────────────────────────────────
 
-    @Override public Board getChessBoard()                          { return chessBoard; }
-    @Override public BoardTheme getBoardTheme()                     { return boardTheme; }
-    @Override public BoardDirection getBoardDirection()             { return boardDirection; }
-    @Override public boolean isHighlightLegalMoves()               { return highlightLegalMoves; }
-    @Override public boolean isHoverHighlight()                     { return hoverHighlight; }
-    @Override public boolean isShowCoordinates()                    { return showCoordinates; }
-    @Override public Tile getSourceTile()                           { return sourceTile; }
-    @Override public Piece getHumanMovedPiece()                    { return humanMovedPiece; }
-    @Override public BufferedImage getDragImage()                   { return dragImage; }
-    @Override public Point getDragPoint()                           { return dragPoint; }
-    @Override public int getDragSourceTileId()                      { return dragSourceTileId; }
-    @Override public int getHoverTileId()                           { return hoverTileId; }
-    @Override public int getLastMoveSource()                        { return lastMoveSource; }
-    @Override public int getLastMoveDest()                          { return lastMoveDest; }
-    @Override public int getArrowSource()                           { return arrowSource; }
-    @Override public int getArrowDest()                             { return arrowDest; }
-    @Override public BufferedImage getAnimPiece()                   { return animPiece; }
-    @Override public float getAnimFromX()                           { return animFromX; }
-    @Override public float getAnimFromY()                           { return animFromY; }
-    @Override public float getAnimToX()                             { return animToX; }
-    @Override public float getAnimToY()                             { return animToY; }
-    @Override public float getAnimProgress()                        { return animProgress; }
-    @Override public Map<String, BufferedImage> getScaledImageCache() { return scaledImageCache; }
-    @Override public Map<String, BufferedImage> getRawImageCache()  { return RAW_IMAGE_CACHE; }
-
-    // ── Image cache ───────────────────────────────────────────────────
-
     private static Map<String, BufferedImage> loadRawCache() {
         final Map<String, BufferedImage> cache = new HashMap<>();
         for (final String a : new String[]{"W", "B"})
@@ -181,6 +163,128 @@ public class Table implements TableContext {
                 }
             }
         return Collections.unmodifiableMap(cache);
+    }
+
+    @Override
+    public Board getChessBoard() {
+        return chessBoard;
+    }
+
+    @Override
+    public BoardTheme getBoardTheme() {
+        return boardTheme;
+    }
+
+    @Override
+    public BoardDirection getBoardDirection() {
+        return boardDirection;
+    }
+
+    @Override
+    public boolean isHighlightLegalMoves() {
+        return highlightLegalMoves;
+    }
+
+    @Override
+    public boolean isHoverHighlight() {
+        return hoverHighlight;
+    }
+
+    @Override
+    public boolean isShowCoordinates() {
+        return showCoordinates;
+    }
+
+    @Override
+    public Tile getSourceTile() {
+        return sourceTile;
+    }
+
+    @Override
+    public Piece getHumanMovedPiece() {
+        return humanMovedPiece;
+    }
+
+    @Override
+    public BufferedImage getDragImage() {
+        return dragImage;
+    }
+
+    @Override
+    public Point getDragPoint() {
+        return dragPoint;
+    }
+
+    @Override
+    public int getDragSourceTileId() {
+        return dragSourceTileId;
+    }
+
+    @Override
+    public int getHoverTileId() {
+        return hoverTileId;
+    }
+
+    @Override
+    public int getLastMoveSource() {
+        return lastMoveSource;
+    }
+
+    @Override
+    public int getLastMoveDest() {
+        return lastMoveDest;
+    }
+
+    @Override
+    public int getArrowSource() {
+        return arrowSource;
+    }
+
+    @Override
+    public int getArrowDest() {
+        return arrowDest;
+    }
+
+    @Override
+    public BufferedImage getAnimPiece() {
+        return animPiece;
+    }
+
+    @Override
+    public float getAnimFromX() {
+        return animFromX;
+    }
+
+    @Override
+    public float getAnimFromY() {
+        return animFromY;
+    }
+
+    @Override
+    public float getAnimToX() {
+        return animToX;
+    }
+
+    @Override
+    public float getAnimToY() {
+        return animToY;
+    }
+
+    @Override
+    public float getAnimProgress() {
+        return animProgress;
+    }
+
+    @Override
+    public Map<String, BufferedImage> getScaledImageCache() {
+        return scaledImageCache;
+    }
+
+    // ── Image cache ───────────────────────────────────────────────────
+
+    @Override
+    public Map<String, BufferedImage> getRawImageCache() {
+        return RAW_IMAGE_CACHE;
     }
 
     private void rebuildScaledCaches() {
@@ -226,7 +330,10 @@ public class Table implements TableContext {
         menu.add(undo);
 
         final JMenuItem setup = new JMenuItem("Game Setup...");
-        setup.addActionListener(e -> { gameSetup.promptUser(); setupAfterGameSetup(); });
+        setup.addActionListener(e -> {
+            gameSetup.promptUser();
+            setupAfterGameSetup();
+        });
         menu.add(setup);
 
         menu.addSeparator();
@@ -256,7 +363,10 @@ public class Table implements TableContext {
         final JMenu menu = new JMenu("Preferences");
 
         final JMenuItem flip = new JMenuItem("Flip Board");
-        flip.addActionListener(e -> { boardDirection = boardDirection.opposite(); boardPanel.drawBoard(chessBoard); });
+        flip.addActionListener(e -> {
+            boardDirection = boardDirection.opposite();
+            boardPanel.drawBoard(chessBoard);
+        });
         menu.add(flip);
         menu.addSeparator();
 
@@ -375,7 +485,10 @@ public class Table implements TableContext {
         dragSourceTileId = -1;
         boardPanel.clearAnnotations();
         tryMove(fromId, toId);
-        if (lastMoveSource == fromId) { arrowSource = fromId; arrowDest = toId; }
+        if (lastMoveSource == fromId) {
+            arrowSource = fromId;
+            arrowDest = toId;
+        }
         afterMoveRefresh();
     }
 
@@ -475,7 +588,10 @@ public class Table implements TableContext {
                 btn.setVerticalTextPosition(SwingConstants.BOTTOM);
             }
             btn.setFocusPainted(false);
-            btn.addActionListener(e -> { chosen[0] = idx; dialog.dispose(); });
+            btn.addActionListener(e -> {
+                chosen[0] = idx;
+                dialog.dispose();
+            });
             dialog.add(btn);
         }
         dialog.pack();
@@ -550,9 +666,14 @@ public class Table implements TableContext {
             lastMoveSource = -1;
             lastMoveDest = -1;
         }
-        sourceTile = null; destinationTile = null; humanMovedPiece = null;
-        dragImage = null; dragPoint = null; dragSourceTileId = -1;
-        hoverTileId = -1; gameOver = false;
+        sourceTile = null;
+        destinationTile = null;
+        humanMovedPiece = null;
+        dragImage = null;
+        dragPoint = null;
+        dragSourceTileId = -1;
+        hoverTileId = -1;
+        gameOver = false;
         SwingUtilities.invokeLater(() -> {
             gameHistoryPanel.redo(chessBoard, moveLog);
             takenPiecesPanel.redo(moveLog);
@@ -572,12 +693,17 @@ public class Table implements TableContext {
         for (final Move m : loaded) moveLog.addMove(m);
         final Move last = loaded.getLast();
         lastMoveSource = last.getCurrentCoordinate();
-        lastMoveDest   = last.getDestinationCoordinate();
+        lastMoveDest = last.getDestinationCoordinate();
         arrowSource = lastMoveSource;
-        arrowDest   = lastMoveDest;
-        sourceTile = null; destinationTile = null; humanMovedPiece = null;
-        dragImage = null; dragPoint = null; dragSourceTileId = -1;
-        hoverTileId = -1; gameOver = false;
+        arrowDest = lastMoveDest;
+        sourceTile = null;
+        destinationTile = null;
+        humanMovedPiece = null;
+        dragImage = null;
+        dragPoint = null;
+        dragSourceTileId = -1;
+        hoverTileId = -1;
+        gameOver = false;
         SwingUtilities.invokeLater(() -> {
             gameHistoryPanel.redo(chessBoard, moveLog);
             takenPiecesPanel.redo(moveLog);
@@ -595,10 +721,18 @@ public class Table implements TableContext {
             final Board loaded = Board.fromFEN(fen.trim());
             chessBoard = loaded;
             moveLog.clear();
-            sourceTile = null; destinationTile = null; humanMovedPiece = null;
-            dragImage = null; dragPoint = null; dragSourceTileId = -1;
-            hoverTileId = -1; lastMoveSource = -1; lastMoveDest = -1;
-            arrowSource = -1; arrowDest = -1; gameOver = false;
+            sourceTile = null;
+            destinationTile = null;
+            humanMovedPiece = null;
+            dragImage = null;
+            dragPoint = null;
+            dragSourceTileId = -1;
+            hoverTileId = -1;
+            lastMoveSource = -1;
+            lastMoveDest = -1;
+            arrowSource = -1;
+            arrowDest = -1;
+            gameOver = false;
             boardPanel.clearAnnotations();
             SwingUtilities.invokeLater(() -> {
                 gameHistoryPanel.redo(chessBoard, moveLog);
@@ -617,10 +751,18 @@ public class Table implements TableContext {
     private void resetGame() {
         chessBoard = Board.createStandardBoard();
         moveLog.clear();
-        sourceTile = null; destinationTile = null; humanMovedPiece = null;
-        dragImage = null; dragPoint = null; dragSourceTileId = -1;
-        hoverTileId = -1; lastMoveSource = -1; lastMoveDest = -1;
-        arrowSource = -1; arrowDest = -1; gameOver = false;
+        sourceTile = null;
+        destinationTile = null;
+        humanMovedPiece = null;
+        dragImage = null;
+        dragPoint = null;
+        dragSourceTileId = -1;
+        hoverTileId = -1;
+        lastMoveSource = -1;
+        lastMoveDest = -1;
+        arrowSource = -1;
+        arrowDest = -1;
+        gameOver = false;
         clockPanel.reset(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
             gameHistoryPanel.redo(chessBoard, moveLog);
@@ -643,22 +785,25 @@ public class Table implements TableContext {
             gameFrame.setCursor(Cursor.getDefaultCursor());
             try {
                 final Move m = get();
-                if (m == null) { afterMoveRefresh(); return; }
+                if (m == null) {
+                    afterMoveRefresh();
+                    return;
+                }
 
                 final int fromId = m.getCurrentCoordinate();
-                final int toId   = m.getDestinationCoordinate();
+                final int toId = m.getDestinationCoordinate();
                 final Piece piece = chessBoard.getTile(fromId).getPiece();
-                final String key  = String.valueOf(piece.getPieceAlliance().toString().charAt(0)) + piece;
+                final String key = String.valueOf(piece.getPieceAlliance().toString().charAt(0)) + piece;
                 animPiece = scaledImageCache.getOrDefault(key, RAW_IMAGE_CACHE.get(key));
 
                 final int tw = boardPanel.getWidth() / 8;
                 final int th = boardPanel.getHeight() / 8;
                 final int fromDisp = (boardDirection == BoardDirection.FLIPPED) ? (63 - fromId) : fromId;
-                final int toDisp   = (boardDirection == BoardDirection.FLIPPED) ? (63 - toId)   : toId;
+                final int toDisp = (boardDirection == BoardDirection.FLIPPED) ? (63 - toId) : toId;
                 animFromX = (fromDisp % 8) * tw;
                 animFromY = (fromDisp / 8) * th;
-                animToX   = (toDisp % 8) * tw;
-                animToY   = (toDisp / 8) * th;
+                animToX = (toDisp % 8) * tw;
+                animToY = (toDisp / 8) * th;
                 animProgress = 0f;
 
                 dragSourceTileId = fromId;
@@ -675,7 +820,7 @@ public class Table implements TableContext {
                         dragSourceTileId = -1;
                         tryMove(fromId, toId);
                         arrowSource = fromId;
-                        arrowDest   = toId;
+                        arrowDest = toId;
                         afterMoveRefresh();
                     }
                 });

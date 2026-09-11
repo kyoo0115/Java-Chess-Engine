@@ -1,9 +1,17 @@
 package com.chess.engine.gui;
 
-import javazoom.jl.decoder.*;
+import javazoom.jl.decoder.Bitstream;
+import javazoom.jl.decoder.Decoder;
+import javazoom.jl.decoder.Header;
+import javazoom.jl.decoder.SampleBuffer;
 
-import javax.sound.sampled.*;
-import java.io.*;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.SourceDataLine;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -17,18 +25,22 @@ public class SoundManager {
 
     private static final String SOUNDS_DIR = "sounds/";
 
-    /** Single-thread executor so sounds queue and never overlap destructively */
+    /**
+     * Single-thread executor so sounds queue and never overlap destructively
+     */
     private static final ExecutorService EXEC = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "SoundManager");
         t.setDaemon(true);
         return t;
     });
-
-    /** Globally mutable — set from the EDT via Preferences menu */
-    private static volatile boolean enabled = true;
-
-    /** Pre-decoded PCM cache — loaded once at class init */
+    /**
+     * Pre-decoded PCM cache — loaded once at class init
+     */
     private static final Map<SoundType, byte[]> PCM_CACHE = new EnumMap<>(SoundType.class);
+    /**
+     * Globally mutable — set from the EDT via Preferences menu
+     */
+    private static volatile boolean enabled = true;
     private static AudioFormat pcmFormat;
 
     static {
@@ -47,11 +59,16 @@ public class SoundManager {
         }
     }
 
-    private SoundManager() {}
+    private SoundManager() {
+    }
 
-    public static boolean isEnabled() { return enabled; }
+    public static boolean isEnabled() {
+        return enabled;
+    }
 
-    public static void setEnabled(final boolean on) { enabled = on; }
+    public static void setEnabled(final boolean on) {
+        enabled = on;
+    }
 
     public static void play(final SoundType type) {
         if (!enabled) return;
@@ -67,7 +84,8 @@ public class SoundManager {
                     line.write(pcm, 0, pcm.length);
                     line.drain();
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         });
     }
 
@@ -107,19 +125,23 @@ public class SoundManager {
 
     private static String fileFor(final SoundType type) {
         return switch (type) {
-            case MOVE     -> "Move.mp3";
-            case CAPTURE  -> "Capture.mp3";
-            case CASTLE   -> "Move.mp3";
-            case CHECK    -> "Check.mp3";
+            case MOVE -> "Move.mp3";
+            case CAPTURE -> "Capture.mp3";
+            case CASTLE -> "Move.mp3";
+            case CHECK -> "Check.mp3";
             case GAME_END -> "Victory.mp3";
         };
     }
 
+    public enum SoundType {MOVE, CAPTURE, CHECK, GAME_END, CASTLE}
+
     private static final class DecodedAudio {
         final byte[] pcm;
         final AudioFormat format;
-        DecodedAudio(byte[] pcm, AudioFormat format) { this.pcm = pcm; this.format = format; }
-    }
 
-    public enum SoundType {MOVE, CAPTURE, CHECK, GAME_END, CASTLE}
+        DecodedAudio(byte[] pcm, AudioFormat format) {
+            this.pcm = pcm;
+            this.format = format;
+        }
+    }
 }

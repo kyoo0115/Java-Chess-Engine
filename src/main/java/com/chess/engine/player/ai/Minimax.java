@@ -16,6 +16,9 @@ public class Minimax implements MoveStrategy {
     // Two killer slots per ply depth (killers[depth][0..1]).
     private static final int MAX_DEPTH = 32;
     private static final int QUIESCENCE_DEPTH_LIMIT = 4;
+    // ── Opening book ─────────────────────────────────────────────────
+    // Maps "FEN-field1 FEN-field2" → coordinate move string (e.g. "e2e4")
+    private static final Map<String, List<String>> OPENING_BOOK = loadOpeningBook();
     private final BoardEvaluator boardEvaluator;
     private final int searchDepth;
     // ── Transposition table ───────────────────────────────────────────
@@ -23,9 +26,6 @@ public class Minimax implements MoveStrategy {
     // Flag: EXACT=0, LOWER_BOUND=1 (beta cutoff), UPPER_BOUND=2 (no cutoff).
     private final Map<Long, TtEntry> transpositionTable = new HashMap<>(1 << 20);
     private final Move[][] killers = new Move[MAX_DEPTH][2];
-    // ── Opening book ─────────────────────────────────────────────────
-    // Maps "FEN-field1 FEN-field2" → coordinate move string (e.g. "e2e4")
-    private static final Map<String, List<String>> OPENING_BOOK = loadOpeningBook();
 
     // ─────────────────────────────────────────────────────────────────
     //  Public interface
@@ -110,6 +110,105 @@ public class Minimax implements MoveStrategy {
         return base * 6364136223846793005L + 1442695040888963407L;
     }
 
+    /**
+     * Returns true if the current player has at least one major or minor piece
+     * (queen, rook, bishop, knight) — i.e. not a zugzwang-prone K+pawns-only position.
+     */
+    private static boolean hasNonPawnMaterial(final Board board) {
+        for (final Piece p : board.getCurrentPlayer().getActivePieces()) {
+            final Piece.PieceType t = p.getPieceType();
+            if (t == Piece.PieceType.QUEEN || t == Piece.PieceType.ROOK
+                    || t == Piece.PieceType.BISHOP || t == Piece.PieceType.KNIGHT) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Constructs a "null move" board: same position, but with the turn passed to the opponent.
+     * En-passant is cleared (it would be stale after passing a turn).
+     */
+    private static Board makeNullMoveBoard(final Board board) {
+        final Board.Builder builder = new Board.Builder();
+        for (final Piece p : board.getWhitePieces()) builder.setPiece(p);
+        for (final Piece p : board.getBlackPieces()) builder.setPiece(p);
+        builder.setMoveMaker(board.getCurrentPlayer().getOpponent().getAlliance());
+        return builder.build();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Move ordering  (MVV-LVA captures → killers → quiet moves)
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Serialises a board position to the two-field FEN prefix used as the book key:
+     * "piece-placement side-to-move"  e.g. "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b"
+     */
+    private static String boardToFenKey(final Board board) {
+        final StringBuilder sb = new StringBuilder();
+        for (int rank = 0; rank < 8; rank++) {
+            int empty = 0;
+            for (int file = 0; file < 8; file++) {
+                final com.chess.engine.board.Tile tile = board.getTile(rank * 8 + file);
+                if (!tile.isTileOccupied()) {
+                    empty++;
+                } else {
+                    if (empty > 0) {
+                        sb.append(empty);
+                        empty = 0;
+                    }
+                    final Piece p = tile.getPiece();
+                    final char c = fenChar(p);
+                    sb.append(c);
+                }
+            }
+            if (empty > 0) sb.append(empty);
+            if (rank < 7) sb.append('/');
+        }
+        sb.append(' ');
+        sb.append(board.getCurrentPlayer().getAlliance().isWhite() ? 'w' : 'b');
+        return sb.toString();
+    }
+
+    private static char fenChar(final Piece p) {
+        final char c = switch (p.getPieceType()) {
+            case KING -> 'k';
+            case QUEEN -> 'q';
+            case ROOK -> 'r';
+            case BISHOP -> 'b';
+            case KNIGHT -> 'n';
+            case PAWN -> 'p';
+        };
+        return p.getPieceAlliance().isWhite() ? Character.toUpperCase(c) : c;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Killer move storage
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Finds a legal move matching a coordinate string like "e2e4" or "e7e8q".
+     */
+    private static Move findMoveByCoord(final Board board, final String coord) {
+        if (coord.length() < 4) return null;
+        final int fromFile = coord.charAt(0) - 'a';
+        final int fromRank = '8' - coord.charAt(1);
+        final int toFile = coord.charAt(2) - 'a';
+        final int toRank = '8' - coord.charAt(3);
+        final int fromId = fromRank * 8 + fromFile;
+        final int toId = toRank * 8 + toFile;
+        for (final Move m : board.getCurrentPlayer().getLegalMoves()) {
+            if (m.getCurrentCoordinate() == fromId && m.getDestinationCoordinate() == toId)
+                return m;
+        }
+        return null;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Helpers
+    // ─────────────────────────────────────────────────────────────────
+
     @Override
     public String toString() {
         return "Minimax (Alpha-Beta + TT + Killers + Quiescence)";
@@ -144,7 +243,10 @@ public class Minimax implements MoveStrategy {
         // The best move from iteration d is placed first in the move list for iteration d+1.
         for (int currentDepth = 1; currentDepth <= this.searchDepth; currentDepth++) {
             // Reset killers each iteration so they are relevant to the current depth
-            for (int i = 0; i < MAX_DEPTH; i++) { killers[i][0] = null; killers[i][1] = null; }
+            for (int i = 0; i < MAX_DEPTH; i++) {
+                killers[i][0] = null;
+                killers[i][1] = null;
+            }
 
             Move iterationBest = null;
             int highestSeenValue = Integer.MIN_VALUE;
@@ -192,10 +294,6 @@ public class Minimax implements MoveStrategy {
                 bestMove, (System.currentTimeMillis() - startTime) / 1000.0, transpositionTable.size());
         return bestMove;
     }
-
-    // ─────────────────────────────────────────────────────────────────
-    //  Move ordering  (MVV-LVA captures → killers → quiet moves)
-    // ─────────────────────────────────────────────────────────────────
 
     /**
      * Minimising node (Black's turn).
@@ -297,10 +395,6 @@ public class Minimax implements MoveStrategy {
         return highestSeenValue;
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    //  Killer move storage
-    // ─────────────────────────────────────────────────────────────────
-
     /**
      * At depth=0, keep searching captures until the position is "quiet".
      * Prevents the engine from mis-evaluating positions mid-exchange.
@@ -311,10 +405,6 @@ public class Minimax implements MoveStrategy {
     private int quiescence(final Board board, int alpha, int beta, final boolean maximising) {
         return quiescence(board, alpha, beta, maximising, 0);
     }
-
-    // ─────────────────────────────────────────────────────────────────
-    //  Helpers
-    // ─────────────────────────────────────────────────────────────────
 
     private int quiescence(final Board board, int alpha, int beta,
                            final boolean maximising, final int qDepth) {
@@ -378,90 +468,6 @@ public class Minimax implements MoveStrategy {
         ordered.addAll(killerList);
         ordered.addAll(quiet);
         return ordered;
-    }
-
-    /**
-     * Returns true if the current player has at least one major or minor piece
-     * (queen, rook, bishop, knight) — i.e. not a zugzwang-prone K+pawns-only position.
-     */
-    private static boolean hasNonPawnMaterial(final Board board) {
-        for (final Piece p : board.getCurrentPlayer().getActivePieces()) {
-            final Piece.PieceType t = p.getPieceType();
-            if (t == Piece.PieceType.QUEEN || t == Piece.PieceType.ROOK
-                    || t == Piece.PieceType.BISHOP || t == Piece.PieceType.KNIGHT) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Constructs a "null move" board: same position, but with the turn passed to the opponent.
-     * En-passant is cleared (it would be stale after passing a turn).
-     */
-    private static Board makeNullMoveBoard(final Board board) {
-        final Board.Builder builder = new Board.Builder();
-        for (final Piece p : board.getWhitePieces()) builder.setPiece(p);
-        for (final Piece p : board.getBlackPieces()) builder.setPiece(p);
-        builder.setMoveMaker(board.getCurrentPlayer().getOpponent().getAlliance());
-        return builder.build();
-    }
-
-    /**
-     * Serialises a board position to the two-field FEN prefix used as the book key:
-     * "piece-placement side-to-move"  e.g. "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b"
-     */
-    private static String boardToFenKey(final Board board) {
-        final StringBuilder sb = new StringBuilder();
-        for (int rank = 0; rank < 8; rank++) {
-            int empty = 0;
-            for (int file = 0; file < 8; file++) {
-                final com.chess.engine.board.Tile tile = board.getTile(rank * 8 + file);
-                if (!tile.isTileOccupied()) {
-                    empty++;
-                } else {
-                    if (empty > 0) { sb.append(empty); empty = 0; }
-                    final Piece p = tile.getPiece();
-                    final char c = fenChar(p);
-                    sb.append(c);
-                }
-            }
-            if (empty > 0) sb.append(empty);
-            if (rank < 7) sb.append('/');
-        }
-        sb.append(' ');
-        sb.append(board.getCurrentPlayer().getAlliance().isWhite() ? 'w' : 'b');
-        return sb.toString();
-    }
-
-    private static char fenChar(final Piece p) {
-        final char c = switch (p.getPieceType()) {
-            case KING   -> 'k';
-            case QUEEN  -> 'q';
-            case ROOK   -> 'r';
-            case BISHOP -> 'b';
-            case KNIGHT -> 'n';
-            case PAWN   -> 'p';
-        };
-        return p.getPieceAlliance().isWhite() ? Character.toUpperCase(c) : c;
-    }
-
-    /**
-     * Finds a legal move matching a coordinate string like "e2e4" or "e7e8q".
-     */
-    private static Move findMoveByCoord(final Board board, final String coord) {
-        if (coord.length() < 4) return null;
-        final int fromFile = coord.charAt(0) - 'a';
-        final int fromRank = '8' - coord.charAt(1);
-        final int toFile   = coord.charAt(2) - 'a';
-        final int toRank   = '8' - coord.charAt(3);
-        final int fromId   = fromRank * 8 + fromFile;
-        final int toId     = toRank   * 8 + toFile;
-        for (final Move m : board.getCurrentPlayer().getLegalMoves()) {
-            if (m.getCurrentCoordinate() == fromId && m.getDestinationCoordinate() == toId)
-                return m;
-        }
-        return null;
     }
 
     private void storeKiller(final int ply, final Move move) {

@@ -117,12 +117,12 @@ public class Board {
 
         // Track whether we have seen the kings/rooks to set isFirstMove correctly
         // (isFirstMove = piece has castling right in the FEN)
-        boolean whiteKingCanCastle   = castling.contains("K") || castling.contains("Q");
-        boolean blackKingCanCastle   = castling.contains("k") || castling.contains("q");
-        boolean whiteRookKingSide    = castling.contains("K");
-        boolean whiteRookQueenSide   = castling.contains("Q");
-        boolean blackRookKingSide    = castling.contains("k");
-        boolean blackRookQueenSide   = castling.contains("q");
+        boolean whiteKingCanCastle = castling.contains("K") || castling.contains("Q");
+        boolean blackKingCanCastle = castling.contains("k") || castling.contains("q");
+        boolean whiteRookKingSide = castling.contains("K");
+        boolean whiteRookQueenSide = castling.contains("Q");
+        boolean blackRookKingSide = castling.contains("k");
+        boolean blackRookQueenSide = castling.contains("q");
 
         for (int rankIdx = 0; rankIdx < 8; rankIdx++) {
             int file = 0;
@@ -143,10 +143,10 @@ public class Board {
                             boolean firstMove = false;
                             if (alliance == Alliance.WHITE) {
                                 firstMove = (square == 63 && whiteRookKingSide)
-                                         || (square == 56 && whiteRookQueenSide);
+                                        || (square == 56 && whiteRookQueenSide);
                             } else {
                                 firstMove = (square == 7 && blackRookKingSide)
-                                         || (square == 0 && blackRookQueenSide);
+                                        || (square == 0 && blackRookQueenSide);
                             }
                             piece = new Rook(alliance, square, firstMove);
                         }
