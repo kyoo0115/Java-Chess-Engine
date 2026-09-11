@@ -115,6 +115,22 @@ public class GameSetup extends JDialog {
         return DIFFICULTY_DEPTHS[idx];
     }
 
+    int getDifficultyIndex() {
+        return difficultyCombo.getSelectedIndex();
+    }
+
+    int getCustomDepth() {
+        return (int) customDepthSpinner.getValue();
+    }
+
+    void setDifficulty(final int comboIndex, final int customDepth) {
+        final int safeIndex = (comboIndex >= 0 && comboIndex < DIFFICULTY_LABELS.length) ? comboIndex : 1;
+        difficultyCombo.setSelectedIndex(safeIndex);
+        customDepthSpinner.setValue(customDepth);
+        final boolean isCustom = safeIndex == DIFFICULTY_LABELS.length - 1;
+        customSpinnerPanel.setVisible(isCustom);
+    }
+
     PlayerType getWhitePlayerType() {
         return this.whitePlayerType;
     }

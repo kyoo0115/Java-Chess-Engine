@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.prefs.Preferences;
 
 import static javax.swing.SwingUtilities.isLeftMouseButton;
 import static javax.swing.SwingUtilities.isRightMouseButton;
@@ -32,6 +33,8 @@ public class Table {
     private static final String PIECE_ICON_PATH = "images/";
     // ── Static raw image cache (loaded once) ──────────────────────────
     private static final Map<String, BufferedImage> RAW_IMAGE_CACHE = loadRawCache();
+    // ── Persistent preferences ────────────────────────────────────────
+    private static final Preferences PREFS = Preferences.userNodeForPackage(Table.class);
     // ── Coordinate label font (drawn on board edge) ───────────────────
     private static final Font COORD_FONT = new Font("SansSerif", Font.BOLD, 10);
     // ── Instance fields ───────────────────────────────────────────────
@@ -76,6 +79,14 @@ public class Table {
         gameHistoryPanel = new GameHistoryPanel();
         takenPiecesPanel = new TakenPiecesPanel();
         gameSetup = new GameSetup(gameFrame, true);
+
+        // ── Load persisted preferences before building UI ─────────────
+        boardTheme = BoardTheme.fromName(PREFS.get("boardTheme", BoardTheme.CLASSIC.name()));
+        highlightLegalMoves = PREFS.getBoolean("highlightLegalMoves", false);
+        hoverHighlight = PREFS.getBoolean("hoverHighlight", false);
+        showCoordinates = PREFS.getBoolean("showCoordinates", false);
+        SoundManager.setEnabled(PREFS.getBoolean("soundEnabled", true));
+        gameSetup.setDifficulty(PREFS.getInt("difficultyIndex", 1), PREFS.getInt("customDepth", 4));
 
         gameFrame.setJMenuBar(createTableMenuBar());
         gameFrame.setSize(OUTER_FRAME_DIMENSION);
@@ -204,25 +215,28 @@ public class Table {
         menu.addSeparator();
 
         // ── Highlight Legal Moves (click) ───────────────────────────
-        final JCheckBoxMenuItem hiLegal = new JCheckBoxMenuItem("Highlight Legal Moves", false);
+        final JCheckBoxMenuItem hiLegal = new JCheckBoxMenuItem("Highlight Legal Moves", highlightLegalMoves);
         hiLegal.addActionListener(e -> {
             highlightLegalMoves = hiLegal.isSelected();
+            PREFS.putBoolean("highlightLegalMoves", highlightLegalMoves);
             boardPanel.drawBoard(chessBoard);
         });
         menu.add(hiLegal);
 
         // ── Hover highlights ────────────────────────────────────────
-        final JCheckBoxMenuItem hiHover = new JCheckBoxMenuItem("Highlight on Hover", false);
+        final JCheckBoxMenuItem hiHover = new JCheckBoxMenuItem("Highlight on Hover", hoverHighlight);
         hiHover.addActionListener(e -> {
             hoverHighlight = hiHover.isSelected();
+            PREFS.putBoolean("hoverHighlight", hoverHighlight);
             boardPanel.repaint();
         });
         menu.add(hiHover);
 
         // ── Coordinate labels ────────────────────────────────────────
-        final JCheckBoxMenuItem coords = new JCheckBoxMenuItem("Show Coordinates", false);
+        final JCheckBoxMenuItem coords = new JCheckBoxMenuItem("Show Coordinates", showCoordinates);
         coords.addActionListener(e -> {
             showCoordinates = coords.isSelected();
+            PREFS.putBoolean("showCoordinates", showCoordinates);
             boardPanel.repaint();
         });
         menu.add(coords);
@@ -237,6 +251,7 @@ public class Table {
             themeGroup.add(item);
             item.addActionListener(e -> {
                 boardTheme = theme;
+                PREFS.put("boardTheme", theme.name());
                 boardPanel.drawBoard(chessBoard);
             });
             themeMenu.add(item);
@@ -247,7 +262,10 @@ public class Table {
 
         // ── Sound toggle ─────────────────────────────────────────────
         final JCheckBoxMenuItem sound = new JCheckBoxMenuItem("Sound Effects", SoundManager.isEnabled());
-        sound.addActionListener(e -> SoundManager.setEnabled(sound.isSelected()));
+        sound.addActionListener(e -> {
+            SoundManager.setEnabled(sound.isSelected());
+            PREFS.putBoolean("soundEnabled", sound.isSelected());
+        });
         menu.add(sound);
 
         return menu;
@@ -326,6 +344,8 @@ public class Table {
     // ─────────────────────────────────────────────────────────────────
 
     private void setupAfterGameSetup() {
+        PREFS.putInt("difficultyIndex", gameSetup.getDifficultyIndex());
+        PREFS.putInt("customDepth", gameSetup.getCustomDepth());
         SwingUtilities.invokeLater(() -> {
             if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
         });
@@ -478,6 +498,13 @@ public class Table {
             this.lastLight = Color.decode(lastLight);
             this.lastDark = Color.decode(lastDark);
         }
+
+        static BoardTheme fromName(final String name) {
+            for (final BoardTheme t : values()) {
+                if (t.name().equals(name)) return t;
+            }
+            return CLASSIC;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -538,8 +565,8 @@ public class Table {
             moves.clear();
         }
 
-        public Move removeMove(int i) {
-            return moves.remove(i);
+        public void removeMove(int i) {
+            moves.remove(i);
         }
 
         public boolean removeMove(Move m) {
