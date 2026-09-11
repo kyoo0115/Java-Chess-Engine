@@ -13,11 +13,7 @@ import org.imgscalr.Scalr;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -391,7 +387,7 @@ public class Table {
 
         // piece labels and keys matching SCALED_IMAGE_CACHE / RAW_IMAGE_CACHE
         final String[] labels = {"Queen", "Rook", "Bishop", "Knight"};
-        final String[] keys   = {allianceChar + "Q", allianceChar + "R", allianceChar + "B", allianceChar + "N"};
+        final String[] keys = {allianceChar + "Q", allianceChar + "R", allianceChar + "B", allianceChar + "N"};
 
         final int[] chosen = {0};   // default: Queen
 

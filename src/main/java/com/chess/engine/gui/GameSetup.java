@@ -14,7 +14,7 @@ public class GameSetup extends JDialog {
     private static final String COMPUTER_TEXT = "Computer";
 
     private static final String[] DIFFICULTY_LABELS = {"Easy", "Medium", "Hard", "Master", "Custom"};
-    private static final int[]    DIFFICULTY_DEPTHS  = {2,      4,       6,      8,        -1};
+    private static final int[] DIFFICULTY_DEPTHS = {2, 4, 6, 8, -1};
 
     // Defaults: White = Human, Black = Computer, depth = 4 (Medium)
     private PlayerType whitePlayerType = PlayerType.HUMAN;
