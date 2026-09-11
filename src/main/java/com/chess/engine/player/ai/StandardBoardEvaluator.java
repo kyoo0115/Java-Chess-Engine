@@ -91,6 +91,23 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
             20, 30, 10, 0, 0, 10, 30, 20
     };
 
+    /**
+     * Endgame king — centralise; avoid edges and corners.
+     */
+    private static final int[] KING_ENDGAME_TABLE = {
+            -50, -40, -30, -20, -20, -30, -40, -50,
+            -30, -20, -10,   0,   0, -10, -20, -30,
+            -30, -10,  20,  30,  30,  20, -10, -30,
+            -30, -10,  30,  40,  40,  30, -10, -30,
+            -30, -10,  30,  40,  40,  30, -10, -30,
+            -30, -10,  20,  30,  30,  20, -10, -30,
+            -30, -30,   0,   0,   0,   0, -30, -30,
+            -50, -30, -30, -30, -30, -30, -30, -50
+    };
+
+    /** Material threshold below which the endgame king table is used (~no queens + few pieces). */
+    private static final int ENDGAME_MATERIAL_THRESHOLD = 1300;
+
     // ─────────────────────────────────────────────────────────────────
 
     private static int castled(final Player player) {
@@ -123,17 +140,29 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
      * Lookup position bonus from a PST. White pieces read the table top-to-bottom (index as-is).
      * Black pieces mirror vertically (flip by row).
      */
-    private static int pieceSquareBonus(final Player player) {
+    private static int pieceSquareBonus(final Player player, final Board board) {
         int bonus = 0;
         final boolean isWhite = player.getAlliance().isWhite();
+        final boolean endgame = totalNonKingMaterial(board) < ENDGAME_MATERIAL_THRESHOLD;
 
         for (final Piece piece : player.getActivePieces()) {
             final int pos = piece.getPiecePosition();
             // Mirror for black: row r → row (7-r)
             final int tableIndex = isWhite ? mirrorForWhite(pos) : pos;
-            bonus += pstFor(piece)[tableIndex];
+            bonus += pstFor(piece, endgame)[tableIndex];
         }
         return bonus;
+    }
+
+    private static int totalNonKingMaterial(final Board board) {
+        int total = 0;
+        for (final Piece p : board.getWhitePlayer().getActivePieces()) {
+            if (!p.getPieceType().isKing()) total += p.getPieceValue() * 100;
+        }
+        for (final Piece p : board.getBlackPlayer().getActivePieces()) {
+            if (!p.getPieceType().isKing()) total += p.getPieceValue() * 100;
+        }
+        return total;
     }
 
     /**
@@ -148,14 +177,14 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
         return (7 - row) * 8 + col;
     }
 
-    private static int[] pstFor(final Piece piece) {
+    private static int[] pstFor(final Piece piece, final boolean endgame) {
         return switch (piece.getPieceType()) {
             case PAWN -> PAWN_TABLE;
             case KNIGHT -> KNIGHT_TABLE;
             case BISHOP -> BISHOP_TABLE;
             case ROOK -> ROOK_TABLE;
             case QUEEN -> QUEEN_TABLE;
-            case KING -> KING_TABLE;
+            case KING -> endgame ? KING_ENDGAME_TABLE : KING_TABLE;
         };
     }
 
@@ -167,7 +196,7 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
 
     private int scorePlayer(final Board board, final Player player, final int depth) {
         return pieceValue(player) +
-                pieceSquareBonus(player) +
+                pieceSquareBonus(player, board) +
                 mobility(player) +
                 check(player) +
                 checkMate(player, depth) +
