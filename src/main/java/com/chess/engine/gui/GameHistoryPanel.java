@@ -5,73 +5,144 @@ import com.chess.engine.board.Move;
 import com.chess.engine.board.MoveLog;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * • No table header — move number acts as the label
- * • Three columns per row: move# | White | Black
- * • Last move is highlighted with a soft blue pill
- * • Comfortable row height with clean SansSerif font
- */
 public class GameHistoryPanel extends JPanel {
 
-    // ── Dimensions ────────────────────────────────────────────────────────
-    private static final Dimension PREFERRED_SIZE = new Dimension(160, 400);
-    private static final int ROW_HEIGHT = 26;
-    private static final int NUM_COL_WIDTH = 28;
-    private static final int CELL_PAD_H = 6;
-    private static final int PILL_ARC = 6;
+    private static final int ROW_HEIGHT = 28;
+    private static final int NUM_COL_WIDTH = 32;
+    private static final int CELL_PAD_H = 8;
+    private static final int PILL_ARC = 8;
 
-    // ── Light-theme palette ───────────────────────────────────────────────
-    private static final Color BG = new Color(248, 248, 250);
-    private static final Color ROW_ALT = new Color(240, 241, 245);
-    private static final Color NUM_FG = new Color(150, 150, 160);
-    private static final Color MOVE_FG = new Color(25, 25, 35);
-    private static final Color LAST_PILL_BG = new Color(210, 228, 255);   // Lichess-style blue tint
-    private static final Color LAST_PILL_FG = new Color(20, 80, 180);
-    private static final Font NUM_FONT = new Font("SansSerif", Font.PLAIN, 11);
+    private static final Font NUM_FONT = new Font("SansSerif", Font.BOLD, 12);
     private static final Font MOVE_FONT = new Font("SansSerif", Font.PLAIN, 13);
     private static final Font LAST_MOVE_FONT = new Font("SansSerif", Font.BOLD, 13);
 
-    // ── Data ──────────────────────────────────────────────────────────────
-    /**
-     * Each entry = one full move-pair row: [moveNumber, whiteMove, blackMove]
-     */
     private final List<MoveRow> rows = new ArrayList<>();
-    // ── The custom list panel ─────────────────────────────────────────────
     private final MoveListPanel listPanel;
     private final JScrollPane scrollPane;
-    /**
-     * Index into rows of the last highlighted move, and which half (0=white,1=black).
-     */
+    // Toggle options
+    private final ToggleSwitch legalMovesSwitch;
+    private final ToggleSwitch lastMoveSwitch;
+    private final ToggleSwitch flipBoardSwitch;
     private int lastRowIdx = -1;
-    private int lastHalf = -1;   // 0 = white cell, 1 = black cell
+    private int lastHalf = -1; // 0 = white cell, 1 = black cell
+    // Controls bar callbacks
+    private Runnable onFirstMove;
+    private Runnable onPrevMove;
+    private Runnable onPlayPause;
+    private Runnable onNextMove;
+    private Runnable onLastMove;
 
-    GameHistoryPanel() {
-        setLayout(new BorderLayout());
-        setBackground(BG);
+    public GameHistoryPanel(
+            Runnable onFirstMove,
+            Runnable onPrevMove,
+            Runnable onPlayPause,
+            Runnable onNextMove,
+            Runnable onLastMove,
+            boolean initLegalMoves,
+            boolean initLastMove,
+            boolean initFlipBoard,
+            java.util.function.Consumer<Boolean> onToggleLegalMoves,
+            java.util.function.Consumer<Boolean> onToggleLastMove,
+            java.util.function.Consumer<Boolean> onToggleFlipBoard
+    ) {
+        super(new BorderLayout(0, 10));
+        this.onFirstMove = onFirstMove;
+        this.onPrevMove = onPrevMove;
+        this.onPlayPause = onPlayPause;
+        this.onNextMove = onNextMove;
+        this.onLastMove = onLastMove;
+
+        setOpaque(false);
+
+        // 1. Move History Card (Center)
+        JPanel historyCard = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(UITheme.getCardBg());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                g2.setColor(UITheme.getCardBorder());
+                g2.setStroke(new BasicStroke(1.0f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        historyCard.setOpaque(false);
+        historyCard.setBorder(new EmptyBorder(8, 8, 8, 8));
 
         listPanel = new MoveListPanel();
         scrollPane = new JScrollPane(listPanel,
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        scrollPane.getViewport().setBackground(BG);
-        scrollPane.setBackground(BG);
-        scrollPane.setPreferredSize(PREFERRED_SIZE);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setOpaque(false);
 
-        add(scrollPane, BorderLayout.CENTER);
+        historyCard.add(scrollPane, BorderLayout.CENTER);
+        add(historyCard, BorderLayout.CENTER);
+
+        // 2. Bottom Controls & Toggles Card
+        JPanel bottomCard = new JPanel(new BorderLayout(0, 12)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(UITheme.getCardBg());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                g2.setColor(UITheme.getCardBorder());
+                g2.setStroke(new BasicStroke(1.0f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        bottomCard.setOpaque(false);
+        bottomCard.setBorder(new EmptyBorder(12, 14, 14, 14));
+
+        // Playback Buttons Row: [ |< ] [ < ] [ ▶ ] [ > ] [ >| ]
+        JPanel playbackRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
+        playbackRow.setOpaque(false);
+
+        JButton btnFirst = makeNavButton("|<", onFirstMove);
+        JButton btnPrev = makeNavButton("<", onPrevMove);
+        JButton btnPlay = makePlayButton(onPlayPause);
+        JButton btnNext = makeNavButton(">", onNextMove);
+        JButton btnLast = makeNavButton(">|", onLastMove);
+
+        playbackRow.add(btnFirst);
+        playbackRow.add(btnPrev);
+        playbackRow.add(btnPlay);
+        playbackRow.add(btnNext);
+        playbackRow.add(btnLast);
+
+        bottomCard.add(playbackRow, BorderLayout.NORTH);
+
+        // Toggle rows
+        JPanel togglesPanel = new JPanel(new GridLayout(3, 1, 0, 8));
+        togglesPanel.setOpaque(false);
+
+        legalMovesSwitch = new ToggleSwitch(initLegalMoves, onToggleLegalMoves);
+        lastMoveSwitch = new ToggleSwitch(initLastMove, onToggleLastMove);
+        flipBoardSwitch = new ToggleSwitch(initFlipBoard, onToggleFlipBoard);
+
+        togglesPanel.add(makeToggleRow(ChessIcons.getGridIcon(16, null), "Show legal moves", legalMovesSwitch));
+        togglesPanel.add(makeToggleRow(ChessIcons.getExpandArrowIcon(16, null), "Highlight last move", lastMoveSwitch));
+        togglesPanel.add(makeToggleRow(ChessIcons.getSettingsIcon(16, null), "Flip board", flipBoardSwitch));
+
+        bottomCard.add(togglesPanel, BorderLayout.CENTER);
+
+        add(bottomCard, BorderLayout.SOUTH);
+
+        UITheme.addThemeListener(this::repaint);
     }
 
-    // ── Public refresh ────────────────────────────────────────────────────
-
-    /**
-     * Returns check/checkmate suffix only for the move at position {@code idx}
-     * if it is the last move in the list (so we don't annotate mid-game moves
-     * that were later superseded — matching how chess.com renders it).
-     */
     private static String checkSuffix(final Board board, final List<Move> moves, final int idx) {
         if (idx != moves.size() - 1) return "";
         if (board.getCurrentPlayer().isCheckMate()) return "#";
@@ -79,7 +150,83 @@ public class GameHistoryPanel extends JPanel {
         return "";
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
+    private JButton makeNavButton(String text, Runnable action) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? UITheme.getAccentActiveBg() : UITheme.getControlBtnBg());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(UITheme.getControlBtnBorder());
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.setPreferredSize(new Dimension(38, 34));
+        btn.setFont(new Font("SansSerif", Font.BOLD, 12));
+        btn.setForeground(UITheme.getTextSecondary());
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.addActionListener(e -> {
+            if (action != null) action.run();
+        });
+        return btn;
+    }
+
+    private JButton makePlayButton(Runnable action) {
+        JButton btn = new JButton(ChessIcons.getPlayIcon(16, Color.WHITE)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? UITheme.getAccentHover() : UITheme.getAccentBlue());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.setPreferredSize(new Dimension(46, 36));
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.addActionListener(e -> {
+            if (action != null) action.run();
+        });
+        return btn;
+    }
+
+    private JPanel makeToggleRow(Icon icon, String labelText, ToggleSwitch toggleSwitch) {
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setOpaque(false);
+
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        left.setOpaque(false);
+
+        JLabel iconLabel = new JLabel(icon);
+        JLabel textLabel = new JLabel(labelText);
+        textLabel.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        textLabel.setForeground(UITheme.getTextPrimary());
+
+        UITheme.addThemeListener(() -> {
+            textLabel.setForeground(UITheme.getTextPrimary());
+        });
+
+        left.add(iconLabel);
+        left.add(textLabel);
+
+        row.add(left, BorderLayout.CENTER);
+        row.add(toggleSwitch, BorderLayout.EAST);
+        return row;
+    }
+
+    public void setFlipBoardState(boolean flipped) {
+        flipBoardSwitch.setSelected(flipped);
+    }
 
     public void redo(final Board board, final MoveLog moveLog) {
         rows.clear();
@@ -101,7 +248,7 @@ public class GameHistoryPanel extends JPanel {
                 lastRowIdx = rows.size() - 1;
                 lastHalf = 0;
             } else {
-                if (current == null) {           // black moves first (rare edge case)
+                if (current == null) {
                     current = new MoveRow(moveNum++);
                     rows.add(current);
                 }
@@ -122,8 +269,6 @@ public class GameHistoryPanel extends JPanel {
         });
     }
 
-    // ── Inner data class ──────────────────────────────────────────────────
-
     private static class MoveRow {
         final int number;
         String white = "";
@@ -134,15 +279,12 @@ public class GameHistoryPanel extends JPanel {
         }
     }
 
-    // ── Custom-painted list panel ─────────────────────────────────────────
-
     private class MoveListPanel extends JPanel {
 
         private int preferredHeight = 0;
 
         MoveListPanel() {
-            setBackground(BG);
-            setOpaque(true);
+            setOpaque(false);
         }
 
         void setPreferredHeight(final int h) {
@@ -151,7 +293,7 @@ public class GameHistoryPanel extends JPanel {
 
         @Override
         public Dimension getPreferredSize() {
-            return new Dimension(PREFERRED_SIZE.width, Math.max(preferredHeight, PREFERRED_SIZE.height));
+            return new Dimension(220, Math.max(preferredHeight, 180));
         }
 
         @Override
@@ -169,20 +311,21 @@ public class GameHistoryPanel extends JPanel {
                 final MoveRow row = rows.get(i);
                 final int y = i * ROW_HEIGHT;
 
-                // ── Row background (alternating) ──────────────────────
-                g2.setColor(i % 2 == 0 ? BG : ROW_ALT);
-                g2.fillRect(0, y, w, ROW_HEIGHT);
+                if (i % 2 == 1) {
+                    g2.setColor(UITheme.getRowAlt());
+                    g2.fillRoundRect(2, y + 1, w - 4, ROW_HEIGHT - 2, 6, 6);
+                }
 
-                // ── Move number ───────────────────────────────────────
+                // Number
                 g2.setFont(NUM_FONT);
-                g2.setColor(NUM_FG);
+                g2.setColor(UITheme.getTextMuted());
                 drawCentred(g2, row.number + ".", 0, y, NUM_COL_WIDTH);
 
-                // ── White move ────────────────────────────────────────
+                // White move
                 drawMoveCell(g2, row.white, colWhite, y, colBlack - colWhite,
                         i == lastRowIdx && lastHalf == 0);
 
-                // ── Black move ────────────────────────────────────────
+                // Black move
                 drawMoveCell(g2, row.black, colBlack, y, w - colBlack,
                         i == lastRowIdx && lastHalf == 1);
             }
@@ -196,38 +339,37 @@ public class GameHistoryPanel extends JPanel {
             if (text == null || text.isEmpty()) return;
 
             if (isLast) {
-                // Draw rounded pill background
+                // Blue pill highlighting the last played move
                 final FontMetrics fm = g2.getFontMetrics(LAST_MOVE_FONT);
                 final int textW = fm.stringWidth(text);
-                final int pillW = textW + CELL_PAD_H * 2;
-                final int pillH = ROW_HEIGHT - 4;
-                final int pillX = x + CELL_PAD_H;
-                final int pillY = y + 2;
-                g2.setColor(LAST_PILL_BG);
+                final int pillW = Math.max(textW + CELL_PAD_H * 2, 48);
+                final int pillH = ROW_HEIGHT - 6;
+                final int pillX = x + CELL_PAD_H / 2;
+                final int pillY = y + 3;
+
+                g2.setColor(UITheme.getAccentBlue());
                 g2.fillRoundRect(pillX, pillY, pillW, pillH, PILL_ARC, PILL_ARC);
 
                 g2.setFont(LAST_MOVE_FONT);
-                g2.setColor(LAST_PILL_FG);
+                g2.setColor(Color.WHITE);
                 final int baseline = pillY + (pillH - fm.getHeight()) / 2 + fm.getAscent();
-                g2.drawString(text, pillX + CELL_PAD_H, baseline);
+                g2.drawString(text, pillX + (pillW - textW) / 2, baseline);
             } else {
                 g2.setFont(MOVE_FONT);
-                g2.setColor(MOVE_FG);
+                g2.setColor(UITheme.getTextPrimary());
                 final FontMetrics fm = g2.getFontMetrics();
                 final int baseline = y + (ROW_HEIGHT - fm.getHeight()) / 2 + fm.getAscent();
                 g2.drawString(text, x + CELL_PAD_H, baseline);
             }
         }
 
-        /**
-         * Centre text horizontally within a column.
-         */
         private void drawCentred(final Graphics2D g2, final String text,
-                                 final int x, final int y, final int colW) {
+                                 final int x, final int y, final int cellW) {
             final FontMetrics fm = g2.getFontMetrics();
             final int textW = fm.stringWidth(text);
+            final int cx = x + (cellW - textW) / 2;
             final int baseline = y + (ROW_HEIGHT - fm.getHeight()) / 2 + fm.getAscent();
-            g2.drawString(text, x + (colW - textW) / 2, baseline);
+            g2.drawString(text, cx, baseline);
         }
     }
 }

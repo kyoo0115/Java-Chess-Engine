@@ -14,56 +14,21 @@ import java.io.IOException;
 import java.util.*;
 import java.util.List;
 
-/**
- * Chess.com-style captured pieces: two thin horizontal strips placed
- * above and below the board.
- * <p>
- * BLACK strip (top)  — white pieces Black captured
- * WHITE strip (bottom) — black pieces White captured
- * <p>
- * Each strip paints piece icons overlapping slightly, with a green "+N"
- * advantage pill inline after the last piece.
- */
-public class TakenPiecesPanel {
+public class TakenPiecesPanel extends JPanel {
 
-    // ── Piece values ──────────────────────────────────────────────────────
-    private static final int PAWN_VAL = 1;
-    private static final int KNIGHT_VAL = 3;
-    private static final int BISHOP_VAL = 3;
-    private static final int ROOK_VAL = 5;
-    private static final int QUEEN_VAL = 9;
-
-    // ── Layout constants ──────────────────────────────────────────────────
-    private static final int STRIP_H = 32;   // strip height in pixels
-    private static final int PIECE_SIZE = 22;   // icon render size
-    private static final int OVERLAP = 6;    // each icon overlaps previous by this much
-    private static final int PAD_LEFT = 6;    // left padding before first piece
-    private static final int PILL_H = 16;
-    private static final int PILL_ARC = 8;
-    private static final int PILL_PAD = 5;    // horizontal pill text padding
-
-    // ── Light-theme palette ───────────────────────────────────────────────
-    private static final Color BG_TOP = new Color(245, 245, 248);
-    private static final Color BG_BOT = new Color(245, 245, 248);
-    private static final Color BORDER_COL = new Color(210, 211, 216);
-    private static final Color ADV_PILL_BG = new Color(200, 235, 200);
-    private static final Color ADV_PILL_FG = new Color(25, 100, 25);
-    private static final Font PILL_FONT = new Font("SansSerif", Font.BOLD, 11);
-
-    // ── Icon cache (raw — scaled at paint time for crisp rendering) ───────
+    private static final int PIECE_SIZE = 16;
+    private static final int OVERLAP = 4;
     private static final Map<String, BufferedImage> ICON_CACHE = buildIconCache();
-    // ── The two strip panels ──────────────────────────────────────────────
-    private final Strip topStrip;    // BLACK's captures (white pieces) — above board
-    private final Strip bottomStrip; // WHITE's captures (black pieces) — below board
-    // ── State ─────────────────────────────────────────────────────────────
-    private List<Piece> whiteTaken = new ArrayList<>(); // black pieces White captured
-    private List<Piece> blackTaken = new ArrayList<>(); // white pieces Black captured
-    private int whiteMaterial = 0;
-    private int blackMaterial = 0;
 
-    public TakenPiecesPanel() {
-        topStrip = new Strip(BG_TOP,  /* topBorder */ false);
-        bottomStrip = new Strip(BG_BOT,  /* topBorder */ true);
+    private final boolean isWhiteSide; // true = White player (shows black pieces captured by White)
+    private List<Piece> takenPieces = new ArrayList<>();
+    private int materialScore = 0;
+    private int materialAdvantage = 0;
+
+    public TakenPiecesPanel(boolean isWhiteSide) {
+        this.isWhiteSide = isWhiteSide;
+        setOpaque(false);
+        setPreferredSize(new Dimension(100, 18));
     }
 
     private static Map<String, BufferedImage> buildIconCache() {
@@ -80,44 +45,24 @@ public class TakenPiecesPanel {
         return Collections.unmodifiableMap(cache);
     }
 
-    private static int materialScore(final List<Piece> pieces) {
+    private static int calcMaterial(final List<Piece> pieces) {
         int total = 0;
         for (final Piece p : pieces) {
             total += switch (p.getPieceType()) {
-                case PAWN -> PAWN_VAL;
-                case KNIGHT -> KNIGHT_VAL;
-                case BISHOP -> BISHOP_VAL;
-                case ROOK -> ROOK_VAL;
-                case QUEEN -> QUEEN_VAL;
+                case PAWN -> 1;
+                case KNIGHT -> 3;
+                case BISHOP -> 3;
+                case ROOK -> 5;
+                case QUEEN -> 9;
                 default -> 0;
             };
         }
         return total;
     }
 
-    // ── Public refresh ────────────────────────────────────────────────────
-
-    /**
-     * The panel to place above the board (shows Black player's captured pieces).
-     */
-    public JPanel getTopStrip() {
-        return topStrip;
-    }
-
-    // ── Icon cache ────────────────────────────────────────────────────────
-
-    /**
-     * The panel to place below the board (shows White player's captured pieces).
-     */
-    public JPanel getBottomStrip() {
-        return bottomStrip;
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────
-
     public void redo(final MoveLog moveLog) {
-        whiteTaken = new ArrayList<>();
-        blackTaken = new ArrayList<>();
+        final List<Piece> whiteTaken = new ArrayList<>(); // black pieces White captured
+        final List<Piece> blackTaken = new ArrayList<>(); // white pieces Black captured
 
         for (final Move move : moveLog.getMoves()) {
             if (!move.isAttack()) continue;
@@ -129,81 +74,67 @@ public class TakenPiecesPanel {
         whiteTaken.sort((a, b) -> Ints.compare(b.getPieceValue(), a.getPieceValue()));
         blackTaken.sort((a, b) -> Ints.compare(b.getPieceValue(), a.getPieceValue()));
 
-        whiteMaterial = materialScore(whiteTaken);
-        blackMaterial = materialScore(blackTaken);
+        final int whiteMat = calcMaterial(whiteTaken);
+        final int blackMat = calcMaterial(blackTaken);
 
-        topStrip.repaint();
-        bottomStrip.repaint();
+        if (isWhiteSide) {
+            takenPieces = whiteTaken;
+            materialScore = whiteMat;
+            materialAdvantage = whiteMat - blackMat;
+        } else {
+            takenPieces = blackTaken;
+            materialScore = blackMat;
+            materialAdvantage = blackMat - whiteMat;
+        }
+
+        repaint();
     }
 
-    // ── Inner strip panel ─────────────────────────────────────────────────
+    public void clear() {
+        takenPieces.clear();
+        materialScore = 0;
+        materialAdvantage = 0;
+        repaint();
+    }
 
-    private class Strip extends JPanel {
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (takenPieces.isEmpty()) return;
 
-        private final boolean topBorder;
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
-        Strip(final Color bg, final boolean topBorder) {
-            this.topBorder = topBorder;
-            setBackground(bg);
-            setOpaque(true);
-            setPreferredSize(new Dimension(0, STRIP_H));
-        }
+        int x = 0;
+        int y = (getHeight() - PIECE_SIZE) / 2;
 
-        /**
-         * True when this strip renders White's captures (bottom strip).
-         */
-        private boolean isWhiteStrip() {
-            return topBorder;
-        }
-
-        @Override
-        protected void paintComponent(final Graphics g) {
-            super.paintComponent(g);
-
-            final List<Piece> pieces = isWhiteStrip() ? whiteTaken : blackTaken;
-            final int material = isWhiteStrip() ? whiteMaterial : blackMaterial;
-            final int opponent = isWhiteStrip() ? blackMaterial : whiteMaterial;
-            final int advantage = material - opponent;
-
-            final Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-
-            // ── Border line ───────────────────────────────────────────
-            g2.setColor(BORDER_COL);
-            if (topBorder) g2.drawLine(0, 0, getWidth(), 0);
-            else g2.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
-
-            // ── Piece icons ───────────────────────────────────────────
-            final int iconY = (STRIP_H - PIECE_SIZE) / 2;
-            int x = PAD_LEFT;
-            for (final Piece piece : pieces) {
-                final String key = String.valueOf(
-                        piece.getPieceAlliance().toString().charAt(0)) + piece;
-                final BufferedImage img = ICON_CACHE.get(key);
-                if (img != null) {
-                    g2.drawImage(img, x, iconY, PIECE_SIZE, PIECE_SIZE, null);
-                    x += PIECE_SIZE - OVERLAP;
-                }
+        for (final Piece piece : takenPieces) {
+            final String key = String.valueOf(piece.getPieceAlliance().toString().charAt(0)) + piece;
+            final BufferedImage img = ICON_CACHE.get(key);
+            if (img != null) {
+                g2.drawImage(img, x, y, PIECE_SIZE, PIECE_SIZE, null);
+                x += PIECE_SIZE - OVERLAP;
             }
-
-            // ── Advantage pill ────────────────────────────────────────
-            if (advantage > 0) {
-                x += OVERLAP + 4;
-                final String text = "+" + advantage;
-                g2.setFont(PILL_FONT);
-                final FontMetrics fm = g2.getFontMetrics();
-                final int pillW = fm.stringWidth(text) + PILL_PAD * 2;
-                final int pillY = (STRIP_H - PILL_H) / 2;
-                g2.setColor(ADV_PILL_BG);
-                g2.fillRoundRect(x, pillY, pillW, PILL_H, PILL_ARC, PILL_ARC);
-                g2.setColor(ADV_PILL_FG);
-                g2.drawString(text, x + PILL_PAD,
-                        pillY + (PILL_H - fm.getHeight()) / 2 + fm.getAscent());
-            }
-
-            g2.dispose();
         }
+
+        // Draw +N advantage badge if this side has material lead
+        if (materialAdvantage > 0) {
+            x += OVERLAP + 4;
+            String advText = "+" + materialAdvantage;
+            g2.setFont(new Font("SansSerif", Font.BOLD, 10));
+            FontMetrics fm = g2.getFontMetrics();
+            int pillW = fm.stringWidth(advText) + 6;
+            int pillH = 14;
+            int pillY = (getHeight() - pillH) / 2;
+
+            g2.setColor(UITheme.isDark() ? new Color(20, 50, 30) : new Color(220, 245, 225));
+            g2.fillRoundRect(x, pillY, pillW, pillH, 6, 6);
+
+            g2.setColor(UITheme.getActiveGreen());
+            g2.drawString(advText, x + 3, pillY + fm.getAscent() + 1);
+        }
+
+        g2.dispose();
     }
 }

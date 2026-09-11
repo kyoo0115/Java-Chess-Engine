@@ -154,7 +154,15 @@ public class GameSetup extends JDialog {
         return this.whitePlayerType;
     }
 
+    void setWhitePlayerType(final PlayerType whitePlayerType) {
+        this.whitePlayerType = whitePlayerType;
+    }
+
     PlayerType getBlackPlayerType() {
         return this.blackPlayerType;
+    }
+
+    void setBlackPlayerType(final PlayerType blackPlayerType) {
+        this.blackPlayerType = blackPlayerType;
     }
 }

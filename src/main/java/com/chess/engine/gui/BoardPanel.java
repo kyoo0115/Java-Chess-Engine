@@ -17,13 +17,9 @@ import java.util.function.Consumer;
 
 import static javax.swing.SwingUtilities.isRightMouseButton;
 
-/**
- * The 8×8 board panel. Delegates all rendering state reads to {@link TableContext}.
- * Move events are reported back to Table via callbacks.
- */
-class BoardPanel extends JPanel {
+public class BoardPanel extends JPanel {
 
-    private static final Font COORD_FONT = new Font("SansSerif", Font.BOLD, 10);
+    private static final Font COORD_FONT = new Font("SansSerif", Font.BOLD, 11);
     private static final Color ANNOTATION_COLOR = new Color(50, 200, 50, 200);
 
     final List<TilePanel> boardTiles;
@@ -31,25 +27,27 @@ class BoardPanel extends JPanel {
 
     // Callbacks into Table
     private final Runnable onRebuildCaches;
-    private final BiConsumer<Integer, Integer> onMove;   // fromId, toId
+    private final BiConsumer<Integer, Integer> onMove;
     private final Runnable onRightClick;
-    private final Consumer<Integer> onHover;             // hovered tileId
+    private final Consumer<Integer> onHover;
 
-    // Right-click annotations: each int[2] = {fromId, toId}; fromId==toId means circle
+    // Right-click annotations
     private final List<int[]> annotations = new ArrayList<>();
-    private int rcPressId = -1;  // tile pressed on right-click (for drag detection)
+    private int rcPressId = -1;
 
-    BoardPanel(final TableContext ctx,
-               final Runnable onRebuildCaches,
-               final BiConsumer<Integer, Integer> onMove,
-               final Runnable onRightClick,
-               final Consumer<Integer> onHover) {
+    public BoardPanel(final TableContext ctx,
+                      final Runnable onRebuildCaches,
+                      final BiConsumer<Integer, Integer> onMove,
+                      final Runnable onRightClick,
+                      final Consumer<Integer> onHover) {
         super(new GridLayout(8, 8));
         this.ctx = ctx;
         this.onRebuildCaches = onRebuildCaches;
         this.onMove = onMove;
         this.onRightClick = onRightClick;
         this.onHover = onHover;
+
+        setOpaque(false);
 
         boardTiles = new ArrayList<>();
         for (int i = 0; i < BoardUtils.NUM_TILES; i++) {
@@ -69,14 +67,6 @@ class BoardPanel extends JPanel {
         validate();
     }
 
-    // Allow external (Table) press handling by exposing tileIdAtPoint publicly
-    // The drag-point update on mouseDragged is handled here too
-    @Override
-    protected void processMouseEvent(MouseEvent e) {
-        super.processMouseEvent(e);
-        // gameOver / click-to-move handled entirely by callbacks
-    }
-
     public void drawBoard(final Board board) {
         removeAll();
         for (final TilePanel tp : ctx.getBoardDirection().traverse(boardTiles)) {
@@ -87,7 +77,7 @@ class BoardPanel extends JPanel {
         repaint();
     }
 
-    int tileIdAtPoint(final Point p) {
+    public int tileIdAtPoint(final Point p) {
         if (getWidth() == 0 || getHeight() == 0) return -1;
         int col = p.x * 8 / getWidth();
         int row = p.y * 8 / getHeight();
@@ -100,13 +90,12 @@ class BoardPanel extends JPanel {
         return row * 8 + col;
     }
 
-    void clearAnnotations() {
+    public void clearAnnotations() {
         annotations.clear();
     }
 
     private void installMouseListener() {
         final MouseAdapter adapter = new MouseAdapter() {
-
             @Override
             public void mousePressed(MouseEvent e) {
                 if (isRightMouseButton(e)) {
@@ -119,14 +108,12 @@ class BoardPanel extends JPanel {
                 if (!isRightMouseButton(e)) return;
                 final int releaseId = tileIdAtPoint(e.getPoint());
                 if (rcPressId >= 0) {
-                    // Toggle: remove existing annotation with same coordinates, or add new one
                     final int from = rcPressId;
                     final int to = releaseId;
                     boolean removed = annotations.removeIf(a -> a[0] == from && a[1] == to);
                     if (!removed) annotations.add(new int[]{from, to});
                     rcPressId = -1;
                     repaint();
-                    // Don't propagate to Table's right-click handler when annotating
                     return;
                 }
                 rcPressId = -1;
@@ -157,7 +144,7 @@ class BoardPanel extends JPanel {
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
-        // ── Drag ghost ────────────────────────────────────────────────
+        // Drag ghost
         final BufferedImage drag = ctx.getDragImage();
         final Point dragPt = ctx.getDragPoint();
         if (drag != null && dragPt != null) {
@@ -166,7 +153,7 @@ class BoardPanel extends JPanel {
             g2.drawImage(drag, dragPt.x - tileW / 2, dragPt.y - tileH / 2, tileW, tileH, this);
         }
 
-        // ── AI piece animation ────────────────────────────────────────
+        // AI piece animation
         final BufferedImage anim = ctx.getAnimPiece();
         if (anim != null) {
             final int tileW = getWidth() / 8;
@@ -177,19 +164,17 @@ class BoardPanel extends JPanel {
             g2.drawImage(anim, px, py, tileW, tileH, this);
         }
 
-        // ── Move arrow ────────────────────────────────────────────────
-        if (ctx.getArrowSource() >= 0 && ctx.getArrowDest() >= 0)
+        // Move arrow overlay
+        if (ctx.getArrowSource() >= 0 && ctx.getArrowDest() >= 0) {
             paintMoveArrow(g2, ctx.getArrowSource(), ctx.getArrowDest());
+        }
 
-        // ── Right-click annotations ───────────────────────────────────
+        // Right-click annotations
         g2.setColor(ANNOTATION_COLOR);
         for (final int[] ann : annotations) {
             if (ann[0] == ann[1]) paintAnnotationCircle(g2, ann[0]);
             else paintAnnotationArrow(g2, ann[0], ann[1]);
         }
-
-        // ── Coordinate labels ─────────────────────────────────────────
-        if (ctx.isShowCoordinates()) paintCoordinates(g2);
 
         g2.dispose();
     }
@@ -210,11 +195,12 @@ class BoardPanel extends JPanel {
         final double cos = Math.cos(angle);
         final double sin = Math.sin(angle);
 
-        g2.setColor(new Color(235, 165, 25, 185));
+        // Gold arrow color from reference image (#f5a623 / #fac858 with transparency)
+        g2.setColor(UITheme.getArrowColor());
 
-        final int shaftW = Math.max(2, tw / 10);
-        final int headLen = Math.max(8, tw / 4);
-        final int headW = Math.max(5, tw / 4);
+        final int shaftW = Math.max(3, tw / 9);
+        final int headLen = Math.max(10, tw / 3);
+        final int headW = Math.max(8, tw / 3);
         final int sx2 = (int) (x2 - headLen * cos);
         final int sy2 = (int) (y2 - headLen * sin);
         final int[] shaftXs = {
@@ -279,45 +265,5 @@ class BoardPanel extends JPanel {
         final int[] headXs = {x2, (int) (sx2 - headW * sin), (int) (sx2 + headW * sin)};
         final int[] headYs = {y2, (int) (sy2 + headW * cos), (int) (sy2 - headW * cos)};
         g2.fillPolygon(headXs, headYs, 3);
-    }
-
-    private void paintCoordinates(final Graphics2D g2) {
-        final int w = getWidth();
-        final int h = getHeight();
-        final int tw = w / 8;
-        final int th = h / 8;
-
-        g2.setFont(COORD_FONT);
-        final FontMetrics fm = g2.getFontMetrics();
-
-        final String[] files = {"a", "b", "c", "d", "e", "f", "g", "h"};
-        final String[] ranks = {"8", "7", "6", "5", "4", "3", "2", "1"};
-
-        final String[] fLabels = ctx.getBoardDirection() == BoardDirection.FLIPPED
-                ? new String[]{"h", "g", "f", "e", "d", "c", "b", "a"} : files;
-        final String[] rLabels = ctx.getBoardDirection() == BoardDirection.FLIPPED
-                ? new String[]{"1", "2", "3", "4", "5", "6", "7", "8"} : ranks;
-
-        for (int i = 0; i < 8; i++) {
-            final String fl = fLabels[i];
-            final int fx = i * tw + tw - fm.stringWidth(fl) - 3;
-            final int fy = h - 3;
-            g2.setColor(new Color(0, 0, 0, 120));
-            g2.drawString(fl, fx + 1, fy + 1);
-            g2.setColor(isLightTileAt(i, 7) ? ctx.getBoardTheme().dark : ctx.getBoardTheme().light);
-            g2.drawString(fl, fx, fy);
-
-            final String rl = rLabels[i];
-            final int rx = 3;
-            final int ry = i * th + fm.getAscent() + 2;
-            g2.setColor(new Color(0, 0, 0, 120));
-            g2.drawString(rl, rx + 1, ry + 1);
-            g2.setColor(isLightTileAt(0, i) ? ctx.getBoardTheme().dark : ctx.getBoardTheme().light);
-            g2.drawString(rl, rx, ry);
-        }
-    }
-
-    private boolean isLightTileAt(int col, int row) {
-        return (col + row) % 2 == 0;
     }
 }

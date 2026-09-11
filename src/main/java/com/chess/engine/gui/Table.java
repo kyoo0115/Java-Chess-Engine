@@ -1,6 +1,7 @@
 package com.chess.engine.gui;
 
 import com.chess.engine.Alliance;
+import com.chess.engine.PlayerType;
 import com.chess.engine.board.Board;
 import com.chess.engine.board.Move;
 import com.chess.engine.board.MoveLog;
@@ -11,6 +12,7 @@ import com.chess.engine.player.ai.Minimax;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
@@ -31,7 +33,7 @@ import static javax.swing.SwingUtilities.isLeftMouseButton;
 public class Table implements TableContext {
 
     // ── Constants ─────────────────────────────────────────────────────
-    private static final Dimension OUTER_FRAME_DIMENSION = new Dimension(980, 800);
+    private static final Dimension OUTER_FRAME_DIMENSION = new Dimension(1080, 820);
     private static final String PIECE_ICON_PATH = "images/";
     // ── Static raw image cache (loaded once) ──────────────────────────
     private static final Map<String, BufferedImage> RAW_IMAGE_CACHE = loadRawCache();
@@ -40,23 +42,26 @@ public class Table implements TableContext {
     // ── Instance fields ───────────────────────────────────────────────
     private final JFrame gameFrame;
     private final BoardPanel boardPanel;
+    private final BoardContainer boardContainer;
     private final MoveLog moveLog;
-    private final GameHistoryPanel gameHistoryPanel;
-    private final TakenPiecesPanel takenPiecesPanel;
+    private final GameHistoryPanel historyAndControlsPanel;
     private final GameSetup gameSetup;
-    private final JLabel statusLabel;
     private final ClockPanel clockPanel;
+    private final LeftSidebar leftSidebar;
+    private final HeaderBar headerBar;
+
     // ── Per-instance scaled caches (rebuilt on board resize) ──────────
     private Map<String, BufferedImage> scaledImageCache = new HashMap<>();
     private Map<String, BufferedImage> dragImageCache = new HashMap<>();
     private int lastScaledTileSize = -1;
     private Board chessBoard;
     private BoardDirection boardDirection;
-    private BoardTheme boardTheme = BoardTheme.CLASSIC;
+    private BoardTheme boardTheme = BoardTheme.WOOD;
     // Preferences flags
-    private boolean highlightLegalMoves = false;
+    private boolean highlightLegalMoves = true;
     private boolean hoverHighlight = false;
-    private boolean showCoordinates = false;
+    private boolean showCoordinates = true;
+    private boolean highlightLastMove = true;
     private boolean gameOver = false;
     // Selection / drag state
     private Tile sourceTile;
@@ -79,27 +84,28 @@ public class Table implements TableContext {
     private javax.swing.Timer animTimer = null;
 
     public Table() {
-        gameFrame = new JFrame("JChess");
+        gameFrame = new JFrame("Chess");
         gameFrame.setLayout(new BorderLayout());
+
+        // Load persisted preferences
+        final String savedThemeMode = PREFS.get("themeMode", "LIGHT");
+        UITheme.setMode("DARK".equals(savedThemeMode) ? UITheme.Mode.DARK : UITheme.Mode.LIGHT);
+
+        boardTheme = BoardTheme.fromName(PREFS.get("boardTheme", BoardTheme.WOOD.name()));
+        highlightLegalMoves = PREFS.getBoolean("highlightLegalMoves", true);
+        highlightLastMove = PREFS.getBoolean("highlightLastMove", true);
+        hoverHighlight = PREFS.getBoolean("hoverHighlight", false);
+        showCoordinates = PREFS.getBoolean("showCoordinates", true);
+        SoundManager.setEnabled(PREFS.getBoolean("soundEnabled", true));
 
         chessBoard = Board.createStandardBoard();
         moveLog = new MoveLog();
-
-        gameHistoryPanel = new GameHistoryPanel();
-        takenPiecesPanel = new TakenPiecesPanel();
         gameSetup = new GameSetup(gameFrame, true);
-
-        // ── Load persisted preferences before building UI ─────────────
-        boardTheme = BoardTheme.fromName(PREFS.get("boardTheme", BoardTheme.CLASSIC.name()));
-        highlightLegalMoves = PREFS.getBoolean("highlightLegalMoves", false);
-        hoverHighlight = PREFS.getBoolean("hoverHighlight", false);
-        showCoordinates = PREFS.getBoolean("showCoordinates", false);
-        SoundManager.setEnabled(PREFS.getBoolean("soundEnabled", true));
         gameSetup.setDifficulty(PREFS.getInt("difficultyIndex", 1), PREFS.getInt("customDepth", 4));
 
         gameFrame.setJMenuBar(createTableMenuBar());
         gameFrame.setSize(OUTER_FRAME_DIMENSION);
-        gameFrame.setMinimumSize(new Dimension(640, 520));
+        gameFrame.setMinimumSize(new Dimension(860, 680));
 
         boardPanel = new BoardPanel(this,
                 this::rebuildScaledCaches,
@@ -108,49 +114,122 @@ public class Table implements TableContext {
                 this::onHover);
         installBoardPressListener();
 
+        boardContainer = new BoardContainer(boardPanel, this);
+
         clockPanel = new ClockPanel(
                 () -> onTimeout(true),
                 () -> onTimeout(false));
 
-        statusLabel = new JLabel("White to move", SwingConstants.CENTER);
-        statusLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-        statusLabel.setForeground(new Color(50, 50, 60));
-        statusLabel.setBackground(new Color(235, 236, 240));
-        statusLabel.setOpaque(true);
-        statusLabel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(210, 211, 216)),
-                BorderFactory.createEmptyBorder(6, 8, 6, 8)));
+        historyAndControlsPanel = new GameHistoryPanel(
+                this::onFirstMoveClicked,
+                this::undoLastMove,
+                () -> clockPanel.pause(),
+                () -> {
+                    if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
+                },
+                () -> {
+                },
+                highlightLegalMoves,
+                highlightLastMove,
+                boardDirection == BoardDirection.FLIPPED,
+                val -> {
+                    highlightLegalMoves = val;
+                    PREFS.putBoolean("highlightLegalMoves", val);
+                    boardPanel.drawBoard(chessBoard);
+                },
+                val -> {
+                    highlightLastMove = val;
+                    PREFS.putBoolean("highlightLastMove", val);
+                    if (!val) {
+                        arrowSource = -1;
+                        arrowDest = -1;
+                    } else if (moveLog.size() > 0) {
+                        final Move last = moveLog.getMoves().get(moveLog.size() - 1);
+                        arrowSource = last.getCurrentCoordinate();
+                        arrowDest = last.getDestinationCoordinate();
+                    }
+                    boardPanel.drawBoard(chessBoard);
+                },
+                val -> {
+                    boardDirection = val ? BoardDirection.FLIPPED : BoardDirection.NORMAL;
+                    boardPanel.drawBoard(chessBoard);
+                    boardContainer.repaint();
+                }
+        );
 
-        // ── Board area: top strip / board / bottom strip + status ─────
-        // The status bar is nested inside boardSouth so it aligns with
-        // the board width only — not stretched across the sidebar too.
-        final JPanel boardSouth = new JPanel(new BorderLayout(0, 0));
-        boardSouth.setBackground(new Color(245, 245, 248));
-        boardSouth.add(takenPiecesPanel.getBottomStrip(), BorderLayout.NORTH);
-        boardSouth.add(statusLabel,                       BorderLayout.SOUTH);
+        leftSidebar = new LeftSidebar(
+                this::resetGame,
+                () -> {
+                    // Analysis setup
+                    gameSetup.setWhitePlayerType(PlayerType.HUMAN);
+                    gameSetup.setBlackPlayerType(PlayerType.HUMAN);
+                    setupAfterGameSetup();
+                },
+                () -> {
+                    JOptionPane.showMessageDialog(gameFrame,
+                            "Learn Chess: Play moves, study notation, and test tactics against the engine!",
+                            "Learn Chess", JOptionPane.INFORMATION_MESSAGE);
+                },
+                () -> {
+                    gameSetup.promptUser();
+                    setupAfterGameSetup();
+                }
+        );
 
-        final JPanel boardArea2 = new JPanel(new BorderLayout(0, 0));
-        boardArea2.setBackground(new Color(245, 245, 248));
-        boardArea2.add(takenPiecesPanel.getTopStrip(), BorderLayout.NORTH);
-        boardArea2.add(boardPanel,                     BorderLayout.CENTER);
-        boardArea2.add(boardSouth,                     BorderLayout.SOUTH);
+        headerBar = new HeaderBar(
+                tabIndex -> {
+                    if (tabIndex == 0) resetGame();
+                    else if (tabIndex == 1) {
+                        gameSetup.setWhitePlayerType(PlayerType.HUMAN);
+                        gameSetup.setBlackPlayerType(PlayerType.HUMAN);
+                        setupAfterGameSetup();
+                    } else if (tabIndex == 2) {
+                        gameSetup.promptUser();
+                        setupAfterGameSetup();
+                    }
+                },
+                () -> {
+                    PREFS.put("themeMode", UITheme.isDark() ? "DARK" : "LIGHT");
+                    applyAppBg();
+                }
+        );
 
-        // ── Right sidebar: clock cards + move history ─────────────────
-        final JPanel rightSidebar = new JPanel(new BorderLayout(0, 0));
-        rightSidebar.setBackground(new Color(248, 248, 250));
-        rightSidebar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(210, 211, 216)),
-                BorderFactory.createEmptyBorder(6, 6, 6, 6)));
+        // Right side: Clock cards (top) + History & Controls (center/bottom)
+        final JPanel rightSidebar = new JPanel(new BorderLayout(0, 10));
+        rightSidebar.setOpaque(false);
+        rightSidebar.setPreferredSize(new Dimension(270, 0));
+        rightSidebar.setBorder(new EmptyBorder(14, 8, 14, 18));
         rightSidebar.add(clockPanel, BorderLayout.NORTH);
-        rightSidebar.add(gameHistoryPanel, BorderLayout.CENTER);
+        rightSidebar.add(historyAndControlsPanel, BorderLayout.CENTER);
 
-        gameFrame.add(boardArea2,   BorderLayout.CENTER);
-        gameFrame.add(rightSidebar, BorderLayout.EAST);
+        // Center Chessboard wrapper
+        final JPanel boardCenterWrapper = new JPanel(new BorderLayout());
+        boardCenterWrapper.setOpaque(false);
+        boardCenterWrapper.setBorder(new EmptyBorder(10, 10, 14, 10));
+        boardCenterWrapper.add(boardContainer, BorderLayout.CENTER);
+
+        // Main layout assembly
+        final JPanel rootPanel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.setColor(UITheme.getAppBg());
+                g.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+
+        rootPanel.add(headerBar, BorderLayout.NORTH);
+        rootPanel.add(leftSidebar, BorderLayout.WEST);
+        rootPanel.add(boardCenterWrapper, BorderLayout.CENTER);
+        rootPanel.add(rightSidebar, BorderLayout.EAST);
+
+        gameFrame.setContentPane(rootPanel);
 
         boardDirection = BoardDirection.NORMAL;
 
         gameFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         gameFrame.setLocationRelativeTo(null);
+        applyAppBg();
         gameFrame.setVisible(true);
 
         SwingUtilities.invokeLater(() -> {
@@ -160,8 +239,6 @@ public class Table implements TableContext {
             if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
         });
     }
-
-    // ── TableContext implementation ───────────────────────────────────
 
     private static Map<String, BufferedImage> loadRawCache() {
         final Map<String, BufferedImage> cache = new HashMap<>();
@@ -175,6 +252,20 @@ public class Table implements TableContext {
                 }
             }
         return Collections.unmodifiableMap(cache);
+    }
+
+    private void applyAppBg() {
+        gameFrame.getContentPane().setBackground(UITheme.getAppBg());
+        gameFrame.getContentPane().repaint();
+    }
+
+    // ── TableContext implementation ───────────────────────────────────
+
+    private void onFirstMoveClicked() {
+        if (moveLog.size() == 0) return;
+        while (moveLog.size() > 0) {
+            undoLastMove();
+        }
     }
 
     @Override
@@ -239,22 +330,22 @@ public class Table implements TableContext {
 
     @Override
     public int getLastMoveSource() {
-        return lastMoveSource;
+        return highlightLastMove ? lastMoveSource : -1;
     }
 
     @Override
     public int getLastMoveDest() {
-        return lastMoveDest;
+        return highlightLastMove ? lastMoveDest : -1;
     }
 
     @Override
     public int getArrowSource() {
-        return arrowSource;
+        return highlightLastMove ? arrowSource : -1;
     }
 
     @Override
     public int getArrowDest() {
-        return arrowDest;
+        return highlightLastMove ? arrowDest : -1;
     }
 
     @Override
@@ -291,8 +382,6 @@ public class Table implements TableContext {
     public Map<String, BufferedImage> getScaledImageCache() {
         return scaledImageCache;
     }
-
-    // ── Image cache ───────────────────────────────────────────────────
 
     @Override
     public Map<String, BufferedImage> getRawImageCache() {
@@ -377,7 +466,9 @@ public class Table implements TableContext {
         final JMenuItem flip = new JMenuItem("Flip Board");
         flip.addActionListener(e -> {
             boardDirection = boardDirection.opposite();
+            historyAndControlsPanel.setFlipBoardState(boardDirection == BoardDirection.FLIPPED);
             boardPanel.drawBoard(chessBoard);
+            boardContainer.repaint();
         });
         menu.add(flip);
         menu.addSeparator();
@@ -402,7 +493,7 @@ public class Table implements TableContext {
         coords.addActionListener(e -> {
             showCoordinates = coords.isSelected();
             PREFS.putBoolean("showCoordinates", showCoordinates);
-            boardPanel.repaint();
+            boardContainer.repaint();
         });
         menu.add(coords);
 
@@ -447,18 +538,18 @@ public class Table implements TableContext {
 
     private void updateStatus() {
         if (chessBoard.getCurrentPlayer().isCheckMate()) {
-            statusLabel.setText("Checkmate!  " + chessBoard.getCurrentPlayer().getOpponent().getAlliance() + " wins.");
+            leftSidebar.updateStatus(chessBoard.getCurrentPlayer().getOpponent().getAlliance() + " WINS");
         } else if (chessBoard.getCurrentPlayer().isStaleMate()) {
-            statusLabel.setText("Stalemate — Draw.");
+            leftSidebar.updateStatus("DRAW");
         } else if (chessBoard.getCurrentPlayer().isInCheck()) {
-            statusLabel.setText(chessBoard.getCurrentPlayer().getAlliance() + " is in Check!");
+            leftSidebar.updateStatus(chessBoard.getCurrentPlayer().getAlliance() + " IN CHECK");
         } else {
-            statusLabel.setText(chessBoard.getCurrentPlayer().getAlliance() + " to move");
+            leftSidebar.updateStatus(chessBoard.getCurrentPlayer().getAlliance() + " to move");
         }
     }
 
     private void fireAIThinkTank() {
-        statusLabel.setText("Computer thinking…");
+        leftSidebar.updateStatus("Thinking…");
         gameFrame.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
         new AIThinkTank().execute();
     }
@@ -555,7 +646,6 @@ public class Table implements TableContext {
                     final int fromId = dragSourceTileId;
                     onMoveAttempt(fromId, toId);
                 } else {
-                    // click-to-move: second click on same or no valid dest — reset
                     dragImage = null;
                     dragPoint = null;
                     dragSourceTileId = -1;
@@ -620,9 +710,10 @@ public class Table implements TableContext {
     }
 
     private void afterMoveRefresh() {
-        gameHistoryPanel.redo(chessBoard, moveLog);
-        takenPiecesPanel.redo(moveLog);
+        historyAndControlsPanel.redo(chessBoard, moveLog);
+        clockPanel.redoTakenPieces(moveLog);
         boardPanel.drawBoard(chessBoard);
+        boardContainer.repaint();
         updateStatus();
         checkGameOver();
         if (!gameOver) clockPanel.onMoveMade(chessBoard.getCurrentPlayer().getAlliance());
@@ -674,9 +765,13 @@ public class Table implements TableContext {
             final Move last = moveLog.getMoves().get(moveLog.size() - 1);
             lastMoveSource = last.getCurrentCoordinate();
             lastMoveDest = last.getDestinationCoordinate();
+            arrowSource = lastMoveSource;
+            arrowDest = lastMoveDest;
         } else {
             lastMoveSource = -1;
             lastMoveDest = -1;
+            arrowSource = -1;
+            arrowDest = -1;
         }
         sourceTile = null;
         destinationTile = null;
@@ -687,9 +782,10 @@ public class Table implements TableContext {
         hoverTileId = -1;
         gameOver = false;
         SwingUtilities.invokeLater(() -> {
-            gameHistoryPanel.redo(chessBoard, moveLog);
-            takenPiecesPanel.redo(moveLog);
+            historyAndControlsPanel.redo(chessBoard, moveLog);
+            clockPanel.redoTakenPieces(moveLog);
             boardPanel.drawBoard(chessBoard);
+            boardContainer.repaint();
             updateStatus();
         });
     }
@@ -703,7 +799,7 @@ public class Table implements TableContext {
 
         moveLog.clear();
         for (final Move m : loaded) moveLog.addMove(m);
-        final Move last = loaded.getLast();
+        final Move last = loaded.get(loaded.size() - 1);
         lastMoveSource = last.getCurrentCoordinate();
         lastMoveDest = last.getDestinationCoordinate();
         arrowSource = lastMoveSource;
@@ -717,9 +813,10 @@ public class Table implements TableContext {
         hoverTileId = -1;
         gameOver = false;
         SwingUtilities.invokeLater(() -> {
-            gameHistoryPanel.redo(chessBoard, moveLog);
-            takenPiecesPanel.redo(moveLog);
+            historyAndControlsPanel.redo(chessBoard, moveLog);
+            clockPanel.redoTakenPieces(moveLog);
             boardPanel.drawBoard(chessBoard);
+            boardContainer.repaint();
             updateStatus();
         });
     }
@@ -730,8 +827,7 @@ public class Table implements TableContext {
                 JOptionPane.PLAIN_MESSAGE);
         if (fen == null || fen.isBlank()) return;
         try {
-            final Board loaded = Board.fromFEN(fen.trim());
-            chessBoard = loaded;
+            chessBoard = Board.fromFEN(fen.trim());
             moveLog.clear();
             sourceTile = null;
             destinationTile = null;
@@ -747,9 +843,10 @@ public class Table implements TableContext {
             gameOver = false;
             boardPanel.clearAnnotations();
             SwingUtilities.invokeLater(() -> {
-                gameHistoryPanel.redo(chessBoard, moveLog);
-                takenPiecesPanel.redo(moveLog);
+                historyAndControlsPanel.redo(chessBoard, moveLog);
+                clockPanel.redoTakenPieces(moveLog);
                 boardPanel.drawBoard(chessBoard);
+                boardContainer.repaint();
                 updateStatus();
                 if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
             });
@@ -777,9 +874,10 @@ public class Table implements TableContext {
         gameOver = false;
         clockPanel.reset(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
-            gameHistoryPanel.redo(chessBoard, moveLog);
-            takenPiecesPanel.redo(moveLog);
+            historyAndControlsPanel.redo(chessBoard, moveLog);
+            clockPanel.redoTakenPieces(moveLog);
             boardPanel.drawBoard(chessBoard);
+            boardContainer.repaint();
             updateStatus();
         });
     }
@@ -801,45 +899,68 @@ public class Table implements TableContext {
                     afterMoveRefresh();
                     return;
                 }
+                final MoveTransition t = chessBoard.getCurrentPlayer().makeMove(m);
+                if (!t.getMoveStatus().isDone()) {
+                    afterMoveRefresh();
+                    return;
+                }
 
+                animPiece = null;
                 final int fromId = m.getCurrentCoordinate();
                 final int toId = m.getDestinationCoordinate();
-                final Piece piece = chessBoard.getTile(fromId).getPiece();
-                final String key = String.valueOf(piece.getPieceAlliance().toString().charAt(0)) + piece;
-                animPiece = scaledImageCache.getOrDefault(key, RAW_IMAGE_CACHE.get(key));
+
+                final Piece p = m.getMovedPiece();
+                final String key = String.valueOf(p.getPieceAlliance().toString().charAt(0)) + p;
+                final BufferedImage pieceImg = scaledImageCache.getOrDefault(key, RAW_IMAGE_CACHE.get(key));
 
                 final int tw = boardPanel.getWidth() / 8;
                 final int th = boardPanel.getHeight() / 8;
-                final int fromDisp = (boardDirection == BoardDirection.FLIPPED) ? (63 - fromId) : fromId;
-                final int toDisp = (boardDirection == BoardDirection.FLIPPED) ? (63 - toId) : toId;
-                animFromX = (fromDisp % 8) * tw;
-                animFromY = (fromDisp / 8) * th;
-                animToX = (toDisp % 8) * tw;
-                animToY = (toDisp / 8) * th;
+
+                final int fromDisplay = (boardDirection == BoardDirection.FLIPPED) ? (63 - fromId) : fromId;
+                final int toDisplay = (boardDirection == BoardDirection.FLIPPED) ? (63 - toId) : toId;
+
+                animFromX = (fromDisplay % 8) * tw;
+                animFromY = (fromDisplay / 8) * th;
+                animToX = (toDisplay % 8) * tw;
+                animToY = (toDisplay / 8) * th;
+                animPiece = pieceImg;
                 animProgress = 0f;
 
-                dragSourceTileId = fromId;
-                boardPanel.drawBoard(chessBoard);
+                final long durationMs = 180;
+                final long startTime = System.currentTimeMillis();
 
-                final float step = 1f / 10;
-                animTimer = new javax.swing.Timer(15, null);
-                animTimer.addActionListener(ae -> {
-                    animProgress = Math.min(1f, animProgress + step);
-                    boardPanel.repaint();
-                    if (animProgress >= 1f) {
+                if (animTimer != null && animTimer.isRunning()) animTimer.stop();
+
+                animTimer = new javax.swing.Timer(16, ev -> {
+                    final float elapsed = (float) (System.currentTimeMillis() - startTime) / durationMs;
+                    if (elapsed >= 1f) {
+                        animProgress = 1f;
                         animTimer.stop();
                         animPiece = null;
-                        dragSourceTileId = -1;
-                        tryMove(fromId, toId);
+
+                        if (m.isCastlingMove()) SoundManager.play(SoundManager.SoundType.CASTLE);
+                        else if (m.isAttack()) SoundManager.play(SoundManager.SoundType.CAPTURE);
+                        else SoundManager.play(SoundManager.SoundType.MOVE);
+
+                        lastMoveSource = fromId;
+                        lastMoveDest = toId;
                         arrowSource = fromId;
                         arrowDest = toId;
+                        chessBoard = t.getTransitionBoard();
+                        moveLog.addMove(m);
+
+                        if (chessBoard.getCurrentPlayer().isInCheck()) SoundManager.play(SoundManager.SoundType.CHECK);
+
                         afterMoveRefresh();
+                    } else {
+                        animProgress = elapsed;
+                        boardPanel.repaint();
                     }
                 });
                 animTimer.start();
 
-            } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+            } catch (InterruptedException | ExecutionException ex) {
+                ex.printStackTrace();
                 afterMoveRefresh();
             }
         }
