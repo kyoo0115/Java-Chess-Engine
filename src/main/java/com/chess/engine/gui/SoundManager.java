@@ -1,24 +1,17 @@
 package com.chess.engine.gui;
 
-import javazoom.jl.player.Player;
+import javazoom.jl.decoder.*;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
+import javax.sound.sampled.*;
+import java.io.*;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
  * Plays chess sound effects from MP3 files in the sounds/ directory.
- * Uses JLayer (javazoom) for MP3 decoding — no native audio files bundled.
- *
- * Expected files (relative to working directory):
- *   sounds/Move.mp3
- *   sounds/Capture.mp3
- *   sounds/Check.mp3
- *   sounds/Checkmate.mp3
- *   sounds/Victory.mp3
- *   sounds/Defeat.mp3
- *   sounds/NewChallenge.mp3
+ * All files are decoded to PCM once at class-load time so playback is instant.
  */
 public class SoundManager {
 
@@ -34,25 +27,82 @@ public class SoundManager {
     /** Globally mutable — set from the EDT via Preferences menu */
     private static volatile boolean enabled = true;
 
+    /** Pre-decoded PCM cache — loaded once at class init */
+    private static final Map<SoundType, byte[]> PCM_CACHE = new EnumMap<>(SoundType.class);
+    private static AudioFormat pcmFormat;
+
+    static {
+        // Decode all MP3s up front so play() has zero decode latency
+        for (final SoundType type : SoundType.values()) {
+            final String path = SOUNDS_DIR + fileFor(type);
+            try (FileInputStream fis = new FileInputStream(path)) {
+                final DecodedAudio da = decode(fis);
+                if (da != null) {
+                    PCM_CACHE.put(type, da.pcm);
+                    if (pcmFormat == null) pcmFormat = da.format;
+                }
+            } catch (Exception e) {
+                System.err.println("SoundManager: could not load " + path);
+            }
+        }
+    }
+
     private SoundManager() {}
 
-    public static boolean isEnabled() {
-        return enabled;
-    }
+    public static boolean isEnabled() { return enabled; }
 
-    public static void setEnabled(final boolean on) {
-        enabled = on;
-    }
+    public static void setEnabled(final boolean on) { enabled = on; }
 
     public static void play(final SoundType type) {
         if (!enabled) return;
-        final String file = fileFor(type);
-        if (file == null) return;
+        final byte[] pcm = PCM_CACHE.get(type);
+        if (pcm == null || pcmFormat == null) return;
         EXEC.submit(() -> {
-            try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(SOUNDS_DIR + file))) {
-                new Player(bis).play();
+            try {
+                final DataLine.Info info = new DataLine.Info(SourceDataLine.class, pcmFormat);
+                if (!AudioSystem.isLineSupported(info)) return;
+                try (SourceDataLine line = (SourceDataLine) AudioSystem.getLine(info)) {
+                    line.open(pcmFormat, pcm.length);
+                    line.start();
+                    line.write(pcm, 0, pcm.length);
+                    line.drain();
+                }
             } catch (Exception ignored) {}
         });
+    }
+
+    // ── MP3 → PCM decoder using JLayer internals ─────────────────────
+
+    private static DecodedAudio decode(final InputStream in) {
+        try {
+            final Bitstream bitstream = new Bitstream(in);
+            final Decoder decoder = new Decoder();
+            final ByteArrayOutputStream out = new ByteArrayOutputStream();
+            AudioFormat fmt = null;
+            Header header;
+            while ((header = bitstream.readFrame()) != null) {
+                final SampleBuffer buf = (SampleBuffer) decoder.decodeFrame(header, bitstream);
+                if (fmt == null) {
+                    fmt = new AudioFormat(
+                            header.frequency(),
+                            16,
+                            buf.getChannelCount(),
+                            true,
+                            false);
+                }
+                // SampleBuffer gives short[] samples — write as little-endian 16-bit PCM
+                final short[] samples = buf.getBuffer();
+                final int count = buf.getBufferLength();
+                for (int i = 0; i < count; i++) {
+                    out.write(samples[i] & 0xFF);
+                    out.write((samples[i] >> 8) & 0xFF);
+                }
+                bitstream.closeFrame();
+            }
+            return (fmt != null) ? new DecodedAudio(out.toByteArray(), fmt) : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static String fileFor(final SoundType type) {
@@ -63,6 +113,12 @@ public class SoundManager {
             case CHECK    -> "Check.mp3";
             case GAME_END -> "Victory.mp3";
         };
+    }
+
+    private static final class DecodedAudio {
+        final byte[] pcm;
+        final AudioFormat format;
+        DecodedAudio(byte[] pcm, AudioFormat format) { this.pcm = pcm; this.format = format; }
     }
 
     public enum SoundType {MOVE, CAPTURE, CHECK, GAME_END, CASTLE}
