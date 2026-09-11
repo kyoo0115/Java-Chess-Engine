@@ -15,6 +15,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -175,6 +176,11 @@ public class Table {
         newGame.addActionListener(e -> resetGame());
         menu.add(newGame);
 
+        final JMenuItem undo = new JMenuItem("Undo");
+        undo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        undo.addActionListener(e -> undoLastMove());
+        menu.add(undo);
+
         final JMenuItem setup = new JMenuItem("Game Setup...");
         setup.addActionListener(e -> {
             gameSetup.promptUser();
@@ -249,6 +255,53 @@ public class Table {
         menu.add(sound);
 
         return menu;
+    }
+
+    private void undoLastMove() {
+        if (moveLog.size() == 0) return;
+
+        // In Human vs Computer: undo 2 plies (AI reply + human move).
+        // In Human vs Human: undo 1 ply.
+        final boolean vsComputer = gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())
+                || gameSetup.isAIPlayer(chessBoard.getCurrentPlayer().getOpponent());
+        final int movesToPop = (vsComputer && moveLog.size() >= 2) ? 2 : 1;
+
+        for (int i = 0; i < movesToPop; i++) {
+            moveLog.removeMove(moveLog.size() - 1);
+        }
+
+        // Replay from scratch
+        chessBoard = Board.createStandardBoard();
+        for (final Move move : moveLog.getMoves()) {
+            chessBoard = chessBoard.getCurrentPlayer().makeMove(move).getTransitionBoard();
+        }
+
+        // Restore last-move highlight from new tail of log
+        if (moveLog.size() > 0) {
+            final Move last = moveLog.getMoves().get(moveLog.size() - 1);
+            lastMoveSource = last.getCurrentCoordinate();
+            lastMoveDest = last.getDestinationCoordinate();
+        } else {
+            lastMoveSource = -1;
+            lastMoveDest = -1;
+        }
+
+        // Reset interaction state
+        sourceTile = null;
+        destinationTile = null;
+        humanMovedPiece = null;
+        dragImage = null;
+        dragPoint = null;
+        dragSourceTileId = -1;
+        hoverTileId = -1;
+        gameOver = false;
+
+        SwingUtilities.invokeLater(() -> {
+            gameHistoryPanel.redo(chessBoard, moveLog);
+            takenPiecesPanel.redo(moveLog);
+            boardPanel.drawBoard(chessBoard);
+            updateStatus();
+        });
     }
 
     private void resetGame() {
@@ -329,20 +382,48 @@ public class Table {
     /**
      * Shows a dialog asking the human which piece to promote to.
      * Returns a new PawnPromotion carrying the chosen piece.
+     * Shows a dialog with piece-icon buttons; falls back to Queen if dismissed.
      */
     private Move askPromotionChoice(final Move.PawnPromotion original) {
         final com.chess.engine.Alliance alliance = original.getMovedPiece().getPieceAlliance();
         final int dest = original.getDestinationCoordinate();
-        final String[] options = {"Queen", "Rook", "Bishop", "Knight"};
-        final int choice = JOptionPane.showOptionDialog(
-                gameFrame,
-                "Promote pawn to:",
-                "Pawn Promotion",
-                JOptionPane.DEFAULT_OPTION,
-                JOptionPane.QUESTION_MESSAGE,
-                null, options, options[0]);
-        final int idx = Math.max(choice, 0);
-        final Piece promotedTo = switch (idx) {
+        final char allianceChar = alliance.toString().charAt(0);
+
+        // piece labels and keys matching SCALED_IMAGE_CACHE / RAW_IMAGE_CACHE
+        final String[] labels = {"Queen", "Rook", "Bishop", "Knight"};
+        final String[] keys   = {allianceChar + "Q", allianceChar + "R", allianceChar + "B", allianceChar + "N"};
+
+        final int[] chosen = {0};   // default: Queen
+
+        final JDialog dialog = new JDialog(gameFrame, "Pawn Promotion", true);
+        dialog.setLayout(new FlowLayout(FlowLayout.CENTER, 12, 12));
+        dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+
+        for (int i = 0; i < 4; i++) {
+            final int idx = i;
+            final BufferedImage img = SCALED_IMAGE_CACHE.getOrDefault(keys[i], RAW_IMAGE_CACHE.get(keys[i]));
+            final JButton btn = new JButton(labels[i]);
+            if (img != null) {
+                // Scale icon to ~60 px so the button is large enough to click comfortably
+                final int iconSize = 60;
+                final Image scaled = img.getScaledInstance(iconSize, iconSize, Image.SCALE_SMOOTH);
+                btn.setIcon(new ImageIcon(scaled));
+                btn.setHorizontalTextPosition(SwingConstants.CENTER);
+                btn.setVerticalTextPosition(SwingConstants.BOTTOM);
+            }
+            btn.setFocusPainted(false);
+            btn.addActionListener(e -> {
+                chosen[0] = idx;
+                dialog.dispose();
+            });
+            dialog.add(btn);
+        }
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(gameFrame);
+        dialog.setVisible(true);   // blocks until disposed
+
+        final Piece promotedTo = switch (chosen[0]) {
             case 1 -> new Rook(alliance, dest, false);
             case 2 -> new Bishop(alliance, dest, false);
             case 3 -> new Knight(alliance, dest, false);
