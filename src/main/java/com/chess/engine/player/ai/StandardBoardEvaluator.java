@@ -192,6 +192,19 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
 
     @Override
     public int evaluate(final Board board, final int depth) {
+        // Terminal states: return a decisive score immediately.
+        // The current player is the one whose turn it is — if they are in checkmate
+        // or stalemate, return from the loser's perspective.
+        if (board.getCurrentPlayer().isCheckMate()) {
+            // The current player lost — score is hugely negative for them.
+            // Positive = good for White, so: if White is mated → very negative; Black mated → very positive.
+            return board.getCurrentPlayer().getAlliance().isWhite()
+                    ? -(CHECK_MATE_BONUS * depthBonus(depth))
+                    : (CHECK_MATE_BONUS * depthBonus(depth));
+        }
+        if (board.getCurrentPlayer().isStaleMate()) {
+            return 0;
+        }
         return scorePlayer(board, board.getWhitePlayer(), depth) -
                 scorePlayer(board, board.getBlackPlayer(), depth);
     }
@@ -201,11 +214,6 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
                 pieceSquareBonus(player, board) +
                 mobility(player) +
                 check(player) +
-                checkMate(player, depth) +
                 castled(player);
-    }
-
-    private int checkMate(final Player player, final int depth) {
-        return player.getOpponent().isCheckMate() ? CHECK_MATE_BONUS * depthBonus(depth) : 0;
     }
 }

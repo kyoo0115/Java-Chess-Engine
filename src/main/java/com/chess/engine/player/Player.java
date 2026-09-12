@@ -20,21 +20,12 @@ public abstract class Player {
     protected final Collection<Move> legalMoves;
     private final boolean inCheck;
 
-    protected Player(Board board, Collection<Move> legalMoves, Collection<Move> opponentMoves) {
+    protected Player(Board board, Collection<Move> legalMoves, Collection<Move> opponentMoves,
+                     Alliance opponentAlliance) {
         this.board = board;
         this.playerKing = findKing();
-        this.inCheck = !calculateAttacksOnTile(playerKing.getPiecePosition(), opponentMoves).isEmpty();
+        this.inCheck = isSquareAttackedBy(board, playerKing.getPiecePosition(), opponentAlliance);
         this.legalMoves = ImmutableList.copyOf(Iterables.concat(legalMoves, calculateKingCastles(legalMoves, opponentMoves)));
-    }
-
-    public static Collection<Move> calculateAttacksOnTile(int piecePosition, Collection<Move> moves) {
-        List<Move> attacks = new ArrayList<>();
-        for (Move move : moves) {
-            if (move.getDestinationCoordinate() == piecePosition) {
-                attacks.add(move);
-            }
-        }
-        return ImmutableList.copyOf(attacks);
     }
 
     /**
@@ -63,10 +54,9 @@ public abstract class Player {
                 final int leftAttack  = pos + dir * 7;
                 final int rightAttack = pos + dir * 9;
                 // Left diagonal (wraps excluded)
-                if (leftAttack == square && !isRightColumnExclusion(piece.getPieceAlliance(), pos)) return true;
+                if (leftAttack == square && !isLeftColumnExclusion(piece.getPieceAlliance(), pos)) return true;
                 // Right diagonal (wraps excluded)
-                if (rightAttack == square && !isLeftColumnExclusion(piece.getPieceAlliance(), pos)) return true;
-                return false;
+                return rightAttack == square && !isRightColumnExclusion(piece.getPieceAlliance(), pos);
             }
             case KNIGHT -> {
                 final int[] KNIGHT_OFFSETS = {-17, -15, -10, -6, 6, 10, 15, 17};
@@ -207,12 +197,8 @@ public abstract class Player {
 
         final Board transitionBoard = move.execute();
 
-        final Collection<Move> kingAttacks = Player.calculateAttacksOnTile(
-                transitionBoard.getCurrentPlayer().getOpponent().getPlayerKing().getPiecePosition(),
-                transitionBoard.getCurrentPlayer().getLegalMoves()
-        );
-
-        if (!kingAttacks.isEmpty()) {
+        final int kingSquare = transitionBoard.getCurrentPlayer().getOpponent().getPlayerKing().getPiecePosition();
+        if (isSquareAttackedBy(transitionBoard, kingSquare, transitionBoard.getCurrentPlayer().getAlliance())) {
             return new MoveTransition(this.board, move, MoveStatus.LEAVE_PLAYER_IN_CHECK);
         }
 

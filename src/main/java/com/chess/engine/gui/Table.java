@@ -63,6 +63,7 @@ public class Table implements TableContext {
     private boolean showCoordinates = true;
     private boolean highlightLastMove = true;
     private boolean gameOver = false;
+    private boolean engineVsEnginePaused = false;
     // Selection / drag state
     private Tile sourceTile;
     private Tile destinationTile;
@@ -123,7 +124,7 @@ public class Table implements TableContext {
         historyAndControlsPanel = new GameHistoryPanel(
                 this::onFirstMoveClicked,
                 this::undoLastMove,
-                clockPanel::pause,
+                this::onPlayPause,
                 () -> {
                     if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
                 },
@@ -457,6 +458,10 @@ public class Table implements TableContext {
         load.addActionListener(e -> loadGameFromPgn());
         menu.add(load);
 
+        final JMenuItem saveImage = new JMenuItem("Save Image…");
+        saveImage.addActionListener(e -> exportBoardImage());
+        menu.add(saveImage);
+
         menu.addSeparator();
         final JMenuItem exit = new JMenuItem("Exit");
         exit.addActionListener(e -> System.exit(0));
@@ -516,7 +521,22 @@ public class Table implements TableContext {
         }
     }
 
+    private boolean isEngineVsEngine() {
+        return gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())
+                && gameSetup.isAIPlayer(chessBoard.getCurrentPlayer().getOpponent());
+    }
+
+    private void onPlayPause() {
+        if (isEngineVsEngine()) {
+            engineVsEnginePaused = !engineVsEnginePaused;
+            if (!engineVsEnginePaused && !gameOver) fireAIThinkTank();
+        } else {
+            clockPanel.pause();
+        }
+    }
+
     private void fireAIThinkTank() {
+        if (engineVsEnginePaused) return;
         leftSidebar.updateStatus("Thinking…");
         gameFrame.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
         new AIThinkTank().execute();
@@ -585,7 +605,7 @@ public class Table implements TableContext {
         boardPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                if (gameOver || !isLeftMouseButton(e)) return;
+                if (gameOver || isEngineVsEngine() || !isLeftMouseButton(e)) return;
                 final int tileId = boardPanel.tileIdAtPoint(e.getPoint());
                 if (tileId < 0) return;
                 final Tile tile = chessBoard.getTile(tileId);
@@ -685,7 +705,8 @@ public class Table implements TableContext {
         updateStatus();
         checkGameOver();
         if (!gameOver) clockPanel.onMoveMade(chessBoard.getCurrentPlayer().getAlliance());
-        if (!gameOver && gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
+        if (!gameOver && gameSetup.isAIPlayer(chessBoard.getCurrentPlayer()) && !engineVsEnginePaused)
+            fireAIThinkTank();
     }
 
     private void checkGameOver() {
@@ -780,6 +801,7 @@ public class Table implements TableContext {
         dragSourceTileId = -1;
         hoverTileId = -1;
         gameOver = false;
+        engineVsEnginePaused = false;
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
             clockPanel.redoTakenPieces(moveLog);
@@ -809,6 +831,7 @@ public class Table implements TableContext {
             arrowSource = -1;
             arrowDest = -1;
             gameOver = false;
+            engineVsEnginePaused = false;
             boardPanel.clearAnnotations();
             SwingUtilities.invokeLater(() -> {
                 historyAndControlsPanel.redo(chessBoard, moveLog);
@@ -822,6 +845,42 @@ public class Table implements TableContext {
             JOptionPane.showMessageDialog(gameFrame,
                     "Invalid FEN: " + ex.getMessage(),
                     "FEN Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void exportBoardImage() {
+        final JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Save Board as PNG");
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PNG Image (*.png)", "png"));
+        chooser.setSelectedFile(new File("board.png"));
+        if (chooser.showSaveDialog(gameFrame) != JFileChooser.APPROVE_OPTION) return;
+
+        File file = chooser.getSelectedFile();
+        if (!file.getName().toLowerCase().endsWith(".png"))
+            file = new File(file.getParentFile(), file.getName() + ".png");
+
+        final int w = boardContainer.getWidth();
+        final int h = boardContainer.getHeight();
+        if (w <= 0 || h <= 0) {
+            JOptionPane.showMessageDialog(gameFrame, "Board is not visible yet.", "Export Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        final BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D g2 = img.createGraphics();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        boardContainer.paintAll(g2);
+        g2.dispose();
+
+        try {
+            javax.imageio.ImageIO.write(img, "PNG", file);
+            JOptionPane.showMessageDialog(gameFrame, "Board saved to:\n" + file.getAbsolutePath(),
+                    "Image Saved", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(gameFrame, "Failed to save image:\n" + ex.getMessage(),
+                    "Export Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -846,6 +905,7 @@ public class Table implements TableContext {
         arrowSource = -1;
         arrowDest = -1;
         gameOver = false;
+        engineVsEnginePaused = false;
         boardPanel.clearAnnotations();
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
@@ -872,6 +932,7 @@ public class Table implements TableContext {
         arrowSource = -1;
         arrowDest = -1;
         gameOver = false;
+        engineVsEnginePaused = false;
         clockPanel.reset(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
@@ -879,6 +940,7 @@ public class Table implements TableContext {
             boardPanel.drawBoard(chessBoard);
             boardContainer.repaint();
             updateStatus();
+            if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
         });
     }
 

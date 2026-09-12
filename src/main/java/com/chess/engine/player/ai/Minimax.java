@@ -269,8 +269,8 @@ public class Minimax implements MoveStrategy {
                     if (currentValue > highestSeenValue) {
                         highestSeenValue = currentValue;
                         iterationBest = move;
+                        alpha = highestSeenValue;
                     }
-                    alpha = highestSeenValue;
                 } else {
                     final int currentValue = max(
                             moveTransition.getTransitionBoard(),
@@ -278,8 +278,8 @@ public class Minimax implements MoveStrategy {
                     if (currentValue < lowestSeenValue) {
                         lowestSeenValue = currentValue;
                         iterationBest = move;
+                        beta = lowestSeenValue;
                     }
-                    beta = lowestSeenValue;
                 }
             }
 
@@ -335,14 +335,14 @@ public class Minimax implements MoveStrategy {
                 bestLocal = move;
             }
             if (lowestSeenValue <= alpha) {
-                // Beta cut-off — store as lower bound and record killer
+                // Alpha cut-off in a min node — score is an upper bound
                 storeKiller(ply, move);
-                transpositionTable.put(hash, new TtEntry(lowestSeenValue, depth, TtEntry.LOWER_BOUND));
+                transpositionTable.put(hash, new TtEntry(lowestSeenValue, depth, TtEntry.UPPER_BOUND));
                 return lowestSeenValue;
             }
         }
 
-        final int flag = bestLocal != null ? TtEntry.EXACT : TtEntry.UPPER_BOUND;
+        final int flag = bestLocal != null ? TtEntry.EXACT : TtEntry.LOWER_BOUND;
         transpositionTable.put(hash, new TtEntry(lowestSeenValue, depth, flag));
         return lowestSeenValue;
     }
@@ -385,12 +385,12 @@ public class Minimax implements MoveStrategy {
             }
             if (highestSeenValue >= beta) {
                 storeKiller(ply, move);
-                transpositionTable.put(hash, new TtEntry(highestSeenValue, depth, TtEntry.UPPER_BOUND));
+                transpositionTable.put(hash, new TtEntry(highestSeenValue, depth, TtEntry.LOWER_BOUND));
                 return highestSeenValue;
             }
         }
 
-        final int flag = bestLocal != null ? TtEntry.EXACT : TtEntry.LOWER_BOUND;
+        final int flag = bestLocal != null ? TtEntry.EXACT : TtEntry.UPPER_BOUND;
         transpositionTable.put(hash, new TtEntry(highestSeenValue, depth, flag));
         return highestSeenValue;
     }
