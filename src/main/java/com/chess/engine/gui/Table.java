@@ -123,7 +123,7 @@ public class Table implements TableContext {
         historyAndControlsPanel = new GameHistoryPanel(
                 this::onFirstMoveClicked,
                 this::undoLastMove,
-                () -> clockPanel.pause(),
+                clockPanel::pause,
                 () -> {
                     if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
                 },
@@ -437,9 +437,13 @@ public class Table implements TableContext {
         });
         menu.add(setup);
 
+        final JMenuItem editPos = new JMenuItem("Edit Position…");
+        editPos.addActionListener(e -> openBoardEditor());
+        menu.add(editPos);
+
         menu.addSeparator();
 
-        final JMenuItem loadFen = new JMenuItem("Load FEN\u2026");
+        final JMenuItem loadFen = new JMenuItem("Load FEN…");
         loadFen.addActionListener(e -> loadGameFromFen());
         menu.add(loadFen);
 
@@ -462,42 +466,6 @@ public class Table implements TableContext {
 
     private JMenu createPreferencesMenu() {
         final JMenu menu = new JMenu("Preferences");
-
-        final JMenuItem flip = new JMenuItem("Flip Board");
-        flip.addActionListener(e -> {
-            boardDirection = boardDirection.opposite();
-            historyAndControlsPanel.setFlipBoardState(boardDirection == BoardDirection.FLIPPED);
-            boardPanel.drawBoard(chessBoard);
-            boardContainer.repaint();
-        });
-        menu.add(flip);
-        menu.addSeparator();
-
-        final JCheckBoxMenuItem hiLegal = new JCheckBoxMenuItem("Highlight Legal Moves", highlightLegalMoves);
-        hiLegal.addActionListener(e -> {
-            highlightLegalMoves = hiLegal.isSelected();
-            PREFS.putBoolean("highlightLegalMoves", highlightLegalMoves);
-            boardPanel.drawBoard(chessBoard);
-        });
-        menu.add(hiLegal);
-
-        final JCheckBoxMenuItem hiHover = new JCheckBoxMenuItem("Highlight on Hover", hoverHighlight);
-        hiHover.addActionListener(e -> {
-            hoverHighlight = hiHover.isSelected();
-            PREFS.putBoolean("hoverHighlight", hoverHighlight);
-            boardPanel.repaint();
-        });
-        menu.add(hiHover);
-
-        final JCheckBoxMenuItem coords = new JCheckBoxMenuItem("Show Coordinates", showCoordinates);
-        coords.addActionListener(e -> {
-            showCoordinates = coords.isSelected();
-            PREFS.putBoolean("showCoordinates", showCoordinates);
-            boardContainer.repaint();
-        });
-        menu.add(coords);
-
-        menu.addSeparator();
 
         final JMenu themeMenu = new JMenu("Board Theme");
         final ButtonGroup themeGroup = new ButtonGroup();
@@ -632,7 +600,7 @@ public class Table implements TableContext {
 
                 final String key = String.valueOf(piece.getPieceAlliance().toString().charAt(0)) + piece;
                 dragImage = dragImageCache.getOrDefault(key, RAW_IMAGE_CACHE.get(key));
-                boardPanel.repaint();
+                boardPanel.drawBoard(chessBoard);
             }
 
             @Override
@@ -651,7 +619,7 @@ public class Table implements TableContext {
                     dragSourceTileId = -1;
                     sourceTile = null;
                     humanMovedPiece = null;
-                    boardPanel.repaint();
+                    boardPanel.drawBoard(chessBoard);
                 }
             }
         });
@@ -799,7 +767,7 @@ public class Table implements TableContext {
 
         moveLog.clear();
         for (final Move m : loaded) moveLog.addMove(m);
-        final Move last = loaded.get(loaded.size() - 1);
+        final Move last = loaded.getLast();
         lastMoveSource = last.getCurrentCoordinate();
         lastMoveDest = last.getDestinationCoordinate();
         arrowSource = lastMoveSource;
@@ -855,6 +823,38 @@ public class Table implements TableContext {
                     "Invalid FEN: " + ex.getMessage(),
                     "FEN Error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void openBoardEditor() {
+        final BoardEditorDialog editor = new BoardEditorDialog(
+                gameFrame, chessBoard, scaledImageCache, RAW_IMAGE_CACHE, boardDirection);
+        editor.setVisible(true);
+        final Board result = editor.getResultBoard();
+        if (result == null) return;   // cancelled
+
+        chessBoard = result;
+        moveLog.clear();
+        sourceTile = null;
+        destinationTile = null;
+        humanMovedPiece = null;
+        dragImage = null;
+        dragPoint = null;
+        dragSourceTileId = -1;
+        hoverTileId = -1;
+        lastMoveSource = -1;
+        lastMoveDest = -1;
+        arrowSource = -1;
+        arrowDest = -1;
+        gameOver = false;
+        boardPanel.clearAnnotations();
+        SwingUtilities.invokeLater(() -> {
+            historyAndControlsPanel.redo(chessBoard, moveLog);
+            clockPanel.redoTakenPieces(moveLog);
+            boardPanel.drawBoard(chessBoard);
+            boardContainer.repaint();
+            updateStatus();
+            if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
+        });
     }
 
     private void resetGame() {

@@ -80,9 +80,16 @@ class TilePanel extends JPanel {
         showLegalDot = false;
         isCaptureDot = false;
 
-        final boolean clickActive = ctx.isHighlightLegalMoves() && ctx.getHumanMovedPiece() != null && ctx.getSourceTile() != null;
-        final boolean hoverActive = ctx.isHoverHighlight() && ctx.getHumanMovedPiece() != null && ctx.getHoverTileId() >= 0 && ctx.getSourceTile() == null;
-        if (!clickActive && !hoverActive) return;
+        // Show dots while dragging a piece (dragSourceTileId >= 0) if the toggle is on
+        final boolean dragActive = ctx.isHighlightLegalMoves()
+                && ctx.getHumanMovedPiece() != null
+                && ctx.getDragSourceTileId() >= 0;
+        // Show dots on hover when hoverHighlight is on and no drag is active
+        final boolean hoverActive = ctx.isHoverHighlight()
+                && ctx.getHumanMovedPiece() != null
+                && ctx.getHoverTileId() >= 0
+                && ctx.getDragSourceTileId() < 0;
+        if (!dragActive && !hoverActive) return;
 
         for (final Move move : legalMovesOfSelected(board)) {
             if (move.getDestinationCoordinate() != tileId) continue;
@@ -94,9 +101,12 @@ class TilePanel extends JPanel {
 
     private Collection<Move> legalMovesOfSelected(final Board board) {
         final Piece p = ctx.getHumanMovedPiece();
-        if (p != null && p.getPieceAlliance() == board.getCurrentPlayer().getAlliance())
-            return p.calculateLegalMoves(board);
-        return Collections.emptyList();
+        if (p == null || p.getPieceAlliance() != board.getCurrentPlayer().getAlliance())
+            return Collections.emptyList();
+        // Use the player's fully-filtered legal moves (check-safe, includes castling)
+        return board.getCurrentPlayer().getLegalMoves().stream()
+                .filter(m -> m.getMovedPiece().equals(p))
+                .toList();
     }
 
     private void assignTilePieceIcon(final Board board) {
@@ -137,7 +147,7 @@ class TilePanel extends JPanel {
             final int inset = stroke / 2 + 1;
             g2.drawOval(inset, inset, w - inset * 2, h - inset * 2);
         } else {
-            final int r = w / 4;
+            final int r = w / 8;
             final int cx = w / 2 - r;
             final int cy = h / 2 - r;
             g2.setColor(new Color(0, 0, 0, 80));

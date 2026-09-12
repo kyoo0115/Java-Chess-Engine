@@ -122,6 +122,7 @@ public class BoardPanel extends JPanel {
 
             @Override
             public void mouseDragged(MouseEvent e) {
+                for (final TilePanel tp : boardTiles) tp.refreshDots(ctx.getChessBoard());
                 repaint();
             }
 

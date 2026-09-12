@@ -1,15 +1,11 @@
 package com.chess.engine.gui;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
 public class BoardContainer extends JPanel {
 
-    private static final int MARGIN_LEFT = 28;
-    private static final int MARGIN_BOTTOM = 28;
-    private static final int MARGIN_TOP = 14;
-    private static final int MARGIN_RIGHT = 14;
+    private static final int MARGIN = 28;
 
     private static final Font COORD_FONT = new Font("SansSerif", Font.BOLD, 12);
 
@@ -17,15 +13,29 @@ public class BoardContainer extends JPanel {
     private final TableContext ctx;
 
     public BoardContainer(BoardPanel boardPanel, TableContext ctx) {
-        super(new BorderLayout());
+        super(null); // manual layout so we can enforce a square board
         this.boardPanel = boardPanel;
         this.ctx = ctx;
 
         setOpaque(false);
-        setBorder(new EmptyBorder(MARGIN_TOP, MARGIN_LEFT, MARGIN_BOTTOM, MARGIN_RIGHT));
-        add(boardPanel, BorderLayout.CENTER);
+        add(boardPanel);
 
         UITheme.addThemeListener(this::repaint);
+    }
+
+    /** Force the inner BoardPanel to always be a perfect square. */
+    @Override
+    public void doLayout() {
+        final int w = getWidth();
+        final int h = getHeight();
+        // available space after margins
+        final int availW = w - MARGIN - MARGIN;
+        final int availH = h - MARGIN - MARGIN;
+        final int side = Math.max(0, Math.min(availW, availH));
+        // centre the square inside the available area
+        final int x = MARGIN + (availW - side) / 2;
+        final int y = MARGIN + (availH - side) / 2;
+        boardPanel.setBounds(x, y, side, side);
     }
 
     @Override
@@ -72,7 +82,7 @@ public class BoardContainer extends JPanel {
                 // Rank numbers along the left margin
                 for (int i = 0; i < 8; i++) {
                     String rl = rLabels[i];
-                    int rx = (MARGIN_LEFT - fm.stringWidth(rl)) / 2;
+                    int rx = (MARGIN - fm.stringWidth(rl)) / 2;
                     int ry = by + i * th + th / 2 + fm.getAscent() / 2 - 2;
                     g2.drawString(rl, rx, ry);
                 }
@@ -81,7 +91,7 @@ public class BoardContainer extends JPanel {
                 for (int i = 0; i < 8; i++) {
                     String fl = fLabels[i];
                     int fx = bx + i * tw + tw / 2 - fm.stringWidth(fl) / 2;
-                    int fy = by + bh + (MARGIN_BOTTOM + fm.getAscent()) / 2 - 2;
+                    int fy = by + bh + (MARGIN + fm.getAscent()) / 2 - 2;
                     g2.drawString(fl, fx, fy);
                 }
             }
