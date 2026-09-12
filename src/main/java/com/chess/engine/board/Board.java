@@ -194,6 +194,58 @@ public class Board {
         return builder.build();
     }
 
+    public String toFEN() {
+        final StringBuilder sb = new StringBuilder();
+        // Piece placement
+        for (int rank = 0; rank < 8; rank++) {
+            int empty = 0;
+            for (int file = 0; file < 8; file++) {
+                final Tile tile = gameBoard.get(rank * 8 + file);
+                if (tile.isTileOccupied()) {
+                    if (empty > 0) { sb.append(empty); empty = 0; }
+                    final Piece p = tile.getPiece();
+                    String s = p.getPieceType().toString();
+                    sb.append(p.getPieceAlliance().isWhite() ? s.toUpperCase() : s.toLowerCase());
+                } else {
+                    empty++;
+                }
+            }
+            if (empty > 0) sb.append(empty);
+            if (rank < 7) sb.append('/');
+        }
+        sb.append(' ');
+        sb.append(currentPlayer.getAlliance().isWhite() ? 'w' : 'b');
+        sb.append(' ');
+        // Castling rights
+        String castling = "";
+        if (whitePlayer.getPlayerKing().isFirstMove() && whitePlayer.getPlayerKing().getPiecePosition() == 60) {
+            for (Piece p : whitePieces)
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 63) castling += "K";
+            for (Piece p : whitePieces)
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 56) castling += "Q";
+        }
+        if (blackPlayer.getPlayerKing().isFirstMove() && blackPlayer.getPlayerKing().getPiecePosition() == 4) {
+            for (Piece p : blackPieces)
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 7)  castling += "k";
+            for (Piece p : blackPieces)
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 0)  castling += "q";
+        }
+        sb.append(castling.isEmpty() ? "-" : castling);
+        sb.append(' ');
+        // En passant
+        if (enPassantPawn != null) {
+            int pos = enPassantPawn.getPiecePosition();
+            int epRank = enPassantPawn.getPieceAlliance().isWhite() ? pos - 8 : pos + 8;
+            char file = (char) ('a' + (epRank % 8));
+            int rank = 8 - (epRank / 8);
+            sb.append(file).append(rank);
+        } else {
+            sb.append('-');
+        }
+        sb.append(" 0 1");
+        return sb.toString();
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();

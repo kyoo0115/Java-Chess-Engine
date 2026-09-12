@@ -66,8 +66,8 @@ public class BlackPlayer extends Player {
         if (!f8Tile.isTileOccupied()
                 && !g8Tile.isTileOccupied()
                 && isRookEligibleForCastle(rookTile)
-                && Player.calculateAttacksOnTile(f8, opponentLegals).isEmpty()
-                && Player.calculateAttacksOnTile(g8, opponentLegals).isEmpty()
+                && !Player.isSquareAttackedBy(this.board, f8, Alliance.WHITE)
+                && !Player.isSquareAttackedBy(this.board, g8, Alliance.WHITE)
                 && rookTile.getPiece().getPieceType().isRook()) {
 
             kingCastles.add(new KingSideCastleMove(this.board, this.playerKing, 6,
@@ -79,22 +79,22 @@ public class BlackPlayer extends Player {
     private void addQueenSideCastle(final List<Move> kingCastles,
                                     final Collection<Move> opponentLegals) {
 
-        final int d8 = 1;
+        final int b8 = 1;
         final int c8 = 2;
-        final int b8 = 3;
+        final int d8 = 3;
         final int rookA8 = 0;
 
-        final Tile d8Tile = this.board.getTile(d8);
-        final Tile c8Tile = this.board.getTile(c8);
         final Tile b8Tile = this.board.getTile(b8);
+        final Tile c8Tile = this.board.getTile(c8);
+        final Tile d8Tile = this.board.getTile(d8);
         final Tile rookTile = this.board.getTile(rookA8);
 
-        if (!d8Tile.isTileOccupied()
+        if (!b8Tile.isTileOccupied()
                 && !c8Tile.isTileOccupied()
-                && !b8Tile.isTileOccupied()
+                && !d8Tile.isTileOccupied()
                 && isRookEligibleForCastle(rookTile)
-                && Player.calculateAttacksOnTile(2, opponentLegals).isEmpty()
-                && Player.calculateAttacksOnTile(3, opponentLegals).isEmpty()
+                && !Player.isSquareAttackedBy(this.board, c8, Alliance.WHITE)
+                && !Player.isSquareAttackedBy(this.board, d8, Alliance.WHITE)
                 && rookTile.getPiece().getPieceType().isRook()) {
 
             kingCastles.add(new QueenSideCastleMove(this.board, this.playerKing, 2,

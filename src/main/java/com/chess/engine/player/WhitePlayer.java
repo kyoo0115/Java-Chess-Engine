@@ -59,8 +59,8 @@ public class WhitePlayer extends Player {
         Tile rookTile = this.board.getTile(63);
 
         if (!fTile.isTileOccupied() && !gTile.isTileOccupied() && isRookEligibleForCastle(rookTile)) {
-            if (Player.calculateAttacksOnTile(61, opponentLegals).isEmpty() &&
-                    Player.calculateAttacksOnTile(62, opponentLegals).isEmpty() &&
+            if (!Player.isSquareAttackedBy(this.board, 61, Alliance.BLACK) &&
+                    !Player.isSquareAttackedBy(this.board, 62, Alliance.BLACK) &&
                     rookTile.getPiece().getPieceType().isRook()) {
                 kingCastles.add(new KingSideCastleMove(this.board, this.playerKing, 62,
                         (Rook) rookTile.getPiece(), rookTile.getTileCoordinate(), 61) {
@@ -79,8 +79,8 @@ public class WhitePlayer extends Player {
                 !cTile.isTileOccupied() &&
                 !dTile.isTileOccupied() && isRookEligibleForCastle(rookTile)) {
 
-            if (Player.calculateAttacksOnTile(58, opponentLegals).isEmpty() &&
-                    Player.calculateAttacksOnTile(59, opponentLegals).isEmpty() &&
+            if (!Player.isSquareAttackedBy(this.board, 58, Alliance.BLACK) &&
+                    !Player.isSquareAttackedBy(this.board, 59, Alliance.BLACK) &&
                     rookTile.getPiece().getPieceType().isRook()) {
 
                 kingCastles.add(new QueenSideCastleMove(this.board, this.playerKing, 58,
