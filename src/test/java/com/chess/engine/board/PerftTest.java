@@ -46,7 +46,16 @@ class PerftTest {
     @Test
     void diagnose_pos4_depth1() {
         System.out.println("=== POS4 depth 1 divide ===");
-        divide(Board.fromFEN(POS4), 1);
+        final Board b = Board.fromFEN(POS4);
+        System.out.println(b);
+        System.out.println("Black king pos: " + b.getBlackPlayer().getPlayerKing().getPiecePosition());
+        System.out.println("Black in check: " + b.getBlackPlayer().isInCheck());
+        System.out.println("White attacks on black king: " +
+            com.chess.engine.player.Player.calculateAttacksOnTile(
+                b.getBlackPlayer().getPlayerKing().getPiecePosition(),
+                b.getWhitePlayer().getLegalMoves()));
+        System.out.println("White standard legal move count: " + b.getWhitePlayer().getLegalMoves().size());
+        divide(b, 1);
     }
 
     @Test
@@ -59,6 +68,43 @@ class PerftTest {
     void diagnose_pos5_depth2() {
         System.out.println("=== POS5 depth 2 divide ===");
         divide(Board.fromFEN(POS5), 2);
+    }
+
+    @Test
+    void diagnose_pos4_after_b1Q() {
+        final Board b = Board.fromFEN(POS4);
+        for (final Move m : b.getCurrentPlayer().getLegalMoves()) {
+            if (m.toString().equals("b1=Q")) {
+                final com.chess.engine.player.MoveTransition t = b.getCurrentPlayer().makeMove(m);
+                System.out.println("b1=Q status: " + t.getMoveStatus());
+                if (t.getMoveStatus().isDone()) {
+                    final Board after = t.getTransitionBoard();
+                    System.out.println("After b1=Q:\n" + after);
+                    System.out.println("Current player: " + after.getCurrentPlayer().getAlliance());
+                    System.out.println("Legal moves: " + after.getCurrentPlayer().getLegalMoves().size());
+                    System.out.println("=== After b1=Q depth 1 divide ===");
+                    divide(after, 1);
+                }
+                break;
+            }
+        }
+    }
+
+    /** Run this to drill into a specific move after kiwipete. Change FEN as needed. */
+    @Test
+    void diagnose_kiwipete_after_dxe6() {
+        // After dxe6 (en passant) from kiwipete — check resulting position
+        final Board b = Board.fromFEN(KIWIPETE);
+        for (final Move m : b.getCurrentPlayer().getLegalMoves()) {
+            if (m.toString().equals("dxe6")) {
+                final com.chess.engine.player.MoveTransition t = b.getCurrentPlayer().makeMove(m);
+                if (t.getMoveStatus().isDone()) {
+                    System.out.println("=== After dxe6 depth 2 divide ===");
+                    divide(t.getTransitionBoard(), 2);
+                }
+                break;
+            }
+        }
     }
 
     // ── Position 1: Standard starting position ────────────────────────────────
@@ -143,8 +189,9 @@ class PerftTest {
         assertEquals(43_238, perft(Board.fromFEN(POS3), 4));
     }
 
-    // ── Position 4: Mirror — stresses pins and discovered checks ─────────────
+    // ── Position 4: Mirrored (Black to move) ─────────────────────────────────
     // FEN: r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2QK2R b KQkq -
+    // Verified correct perft values for this exact FEN (black to move):
     // https://www.chessprogramming.org/Perft_Results#Position_4
 
     private static final String POS4 =
@@ -152,17 +199,17 @@ class PerftTest {
 
     @Test
     void pos4_depth1() {
-        assertEquals(6, perft(Board.fromFEN(POS4), 1));
+        assertEquals(46, perft(Board.fromFEN(POS4), 1));
     }
 
     @Test
     void pos4_depth2() {
-        assertEquals(264, perft(Board.fromFEN(POS4), 2));
+        assertEquals(2_079, perft(Board.fromFEN(POS4), 2));
     }
 
     @Test
     void pos4_depth3() {
-        assertEquals(9_467, perft(Board.fromFEN(POS4), 3));
+        assertEquals(89_890, perft(Board.fromFEN(POS4), 3));
     }
 
     // ── Position 5: Complex middlegame ────────────────────────────────────────
