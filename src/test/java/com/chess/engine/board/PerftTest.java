@@ -90,21 +90,18 @@ class PerftTest {
         }
     }
 
-    /** Run this to drill into a specific move after kiwipete. Change FEN as needed. */
+    /** Kiwipete depth-4 divide — compare each move's subtree against reference. */
     @Test
-    void diagnose_kiwipete_after_dxe6() {
-        // After dxe6 (en passant) from kiwipete — check resulting position
-        final Board b = Board.fromFEN(KIWIPETE);
-        for (final Move m : b.getCurrentPlayer().getLegalMoves()) {
-            if (m.toString().equals("dxe6")) {
-                final com.chess.engine.player.MoveTransition t = b.getCurrentPlayer().makeMove(m);
-                if (t.getMoveStatus().isDone()) {
-                    System.out.println("=== After dxe6 depth 2 divide ===");
-                    divide(t.getTransitionBoard(), 2);
-                }
-                break;
-            }
-        }
+    void diagnose_kiwipete_depth4() {
+        System.out.println("=== KIWIPETE depth 4 divide ===");
+        divide(Board.fromFEN(KIWIPETE), 4);
+    }
+
+    /** Pos5 depth-3 divide. */
+    @Test
+    void diagnose_pos5_depth3() {
+        System.out.println("=== POS5 depth 3 divide ===");
+        divide(Board.fromFEN(POS5), 3);
     }
 
     // ── Position 1: Standard starting position ────────────────────────────────
@@ -195,21 +192,21 @@ class PerftTest {
     // https://www.chessprogramming.org/Perft_Results#Position_4
 
     private static final String POS4 =
-            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2QK2R b KQkq -";
+            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
 
     @Test
     void pos4_depth1() {
-        assertEquals(46, perft(Board.fromFEN(POS4), 1));
+        assertEquals(6, perft(Board.fromFEN(POS4), 1));
     }
 
     @Test
     void pos4_depth2() {
-        assertEquals(2_079, perft(Board.fromFEN(POS4), 2));
+        assertEquals(264, perft(Board.fromFEN(POS4), 2));
     }
 
     @Test
     void pos4_depth3() {
-        assertEquals(89_890, perft(Board.fromFEN(POS4), 3));
+        assertEquals(9467, perft(Board.fromFEN(POS4), 3));
     }
 
     // ── Position 5: Complex middlegame ────────────────────────────────────────
