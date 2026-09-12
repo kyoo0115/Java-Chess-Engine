@@ -280,13 +280,15 @@ public abstract class Move {
             final Board pawnMovedBoard = this.decorateMove.execute();
             final Builder builder = new Builder();
 
-            for (final Piece piece : pawnMovedBoard.getCurrentPlayer().getActivePieces()) {
+            // After decorateMove.execute() the board has flipped sides, so the promoting
+            // player is now pawnMovedBoard.getCurrentPlayer().getOpponent().
+            for (final Piece piece : pawnMovedBoard.getCurrentPlayer().getOpponent().getActivePieces()) {
                 if (!this.promotedPawn.equals(piece)) {
                     builder.setPiece(piece);
                 }
             }
 
-            for (final Piece piece : pawnMovedBoard.getCurrentPlayer().getOpponent().getActivePieces()) {
+            for (final Piece piece : pawnMovedBoard.getCurrentPlayer().getActivePieces()) {
                 builder.setPiece(piece);
             }
 

@@ -3,6 +3,9 @@ package com.chess.engine.board;
 import com.chess.engine.player.MoveTransition;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+import java.util.TreeMap;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -23,6 +26,39 @@ class PerftTest {
                 nodes += perft(t.getTransitionBoard(), depth - 1);
         }
         return nodes;
+    }
+
+    /** Divide — prints per-move node counts at depth to help locate discrepancies. */
+    private void divide(final Board board, final int depth) {
+        final Map<String, Long> counts = new TreeMap<>();
+        long total = 0;
+        for (final Move move : board.getCurrentPlayer().getLegalMoves()) {
+            final MoveTransition t = board.getCurrentPlayer().makeMove(move);
+            if (!t.getMoveStatus().isDone()) continue;
+            final long n = perft(t.getTransitionBoard(), depth - 1);
+            counts.put(move.toString(), n);
+            total += n;
+        }
+        counts.forEach((m, n) -> System.out.println(m + ": " + n));
+        System.out.println("Total: " + total);
+    }
+
+    @Test
+    void diagnose_pos4_depth1() {
+        System.out.println("=== POS4 depth 1 divide ===");
+        divide(Board.fromFEN(POS4), 1);
+    }
+
+    @Test
+    void diagnose_kiwipete_depth3() {
+        System.out.println("=== KIWIPETE depth 3 divide ===");
+        divide(Board.fromFEN(KIWIPETE), 3);
+    }
+
+    @Test
+    void diagnose_pos5_depth2() {
+        System.out.println("=== POS5 depth 2 divide ===");
+        divide(Board.fromFEN(POS5), 2);
     }
 
     // ── Position 1: Standard starting position ────────────────────────────────
