@@ -39,7 +39,7 @@ public class BlackPlayer extends Player {
     protected Collection<Move> calculateKingCastles(Collection<Move> playerLegals, Collection<Move> opponentLegals) {
         final List<Move> kingCastles = new ArrayList<>();
 
-        if (!this.playerKing.isFirstMove() || isInCheck()) {
+        if (!this.playerKing.isFirstMove() || isInCheck() || this.playerKing.getPiecePosition() != 4) {
             return ImmutableList.copyOf(kingCastles); // king cannot castle
         }
 

@@ -22,8 +22,8 @@ public abstract class Player {
     protected Player(Board board, Collection<Move> legalMoves, Collection<Move> opponentMoves) {
         this.board = board;
         this.playerKing = findKing();
-        this.legalMoves = ImmutableList.copyOf(Iterables.concat(legalMoves, calculateKingCastles(legalMoves, opponentMoves)));
         this.inCheck = !calculateAttacksOnTile(playerKing.getPiecePosition(), opponentMoves).isEmpty();
+        this.legalMoves = ImmutableList.copyOf(Iterables.concat(legalMoves, calculateKingCastles(legalMoves, opponentMoves)));
     }
 
     public static Collection<Move> calculateAttacksOnTile(int piecePosition, Collection<Move> moves) {

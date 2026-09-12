@@ -187,8 +187,8 @@ class PerftTest {
     // ── Position 3: Endgame with promotions ──────────────────────────────────
     // FEN: 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -
     // https://www.chessprogramming.org/Perft_Results#Position_3
-    // D3:  nodes=2812,  captures=209,  ep=2,  castles=0, promos=0,  checks=10
-    // D4:  nodes=43238, captures=3348, ep=123,castles=0, promos=1814,checks=154
+    // D3:  nodes=2812,  captures=209,  ep=2,  castles=0, promos=0, checks=267
+    // D4:  nodes=43238, captures=3348, ep=123,castles=0, promos=0,  checks=1680
 
     private static final String POS3 = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -";
 
@@ -211,7 +211,7 @@ class PerftTest {
                 () -> assertEquals(2,     r.enPassants(), "en passants"),
                 () -> assertEquals(0,     r.castles(),    "castles"),
                 () -> assertEquals(0,     r.promotions(), "promotions"),
-                () -> assertEquals(10,    r.checks(),     "checks")
+                () -> assertEquals(	267,    r.checks(),     "checks")
         );
     }
 
@@ -223,8 +223,8 @@ class PerftTest {
                 () -> assertEquals(3_348,  r.captures(),   "captures"),
                 () -> assertEquals(123,    r.enPassants(), "en passants"),
                 () -> assertEquals(0,      r.castles(),    "castles"),
-                () -> assertEquals(1_814,  r.promotions(), "promotions"),
-                () -> assertEquals(154,    r.checks(),     "checks")
+                () -> assertEquals(0,      r.promotions(), "promotions"),
+                () -> assertEquals(1680,    r.checks(),     "checks")
         );
     }
 
@@ -254,7 +254,7 @@ class PerftTest {
     // https://www.chessprogramming.org/Perft_Results#Position_5
     // D1:  nodes=44
     // D2:  nodes=1486
-    // D3:  nodes=62379,   captures=15172 (no ep/castles reference available)
+    // D3:  nodes=62379   (wiki only provides node totals for pos5, no detailed breakdown)
 
     private static final String POS5 =
             "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ -";
