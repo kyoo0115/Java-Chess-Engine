@@ -26,6 +26,9 @@ public class Minimax implements MoveStrategy {
     // Flag: EXACT=0, LOWER_BOUND=1 (beta cutoff), UPPER_BOUND=2 (no cutoff).
     private final Map<Long, TtEntry> transpositionTable = new HashMap<>(1 << 20);
     private final Move[][] killers = new Move[MAX_DEPTH][2];
+    // ── History heuristic ─────────────────────────────────────────────
+    // historyTable[from][to] accumulates scores for quiet moves that caused beta cutoffs.
+    private final int[][] historyTable = new int[64][64];
 
     // ─────────────────────────────────────────────────────────────────
     //  Public interface
@@ -61,16 +64,26 @@ public class Minimax implements MoveStrategy {
     }
 
     /**
-     * Only attack moves, sorted by MVV-LVA — used in quiescence search.
+     * Captures and quiet promotions, sorted by MVV-LVA — used in quiescence search
+     * when the side to move is NOT in check. Quiet promotions are included because
+     * a pawn reaching the back rank is a huge material swing that must not be invisible
+     * at the search horizon.
      */
-    private static List<Move> capturesOnly(final Board board) {
-        final List<Move> captures = new ArrayList<>();
+    private static List<Move> capturesAndPromotions(final Board board) {
+        final List<Move> tactical = new ArrayList<>();
         for (final Move m : board.getCurrentPlayer().getLegalMoves()) {
-            if (m.isAttack()) captures.add(m);
+            if (m.isAttack() || m instanceof Move.PawnPromotion) tactical.add(m);
         }
-        captures.sort(Comparator.comparingInt(m ->
-                -(m.getAttackedPiece().getPieceValue() * 10 - m.getMovedPiece().getPieceValue())));
-        return captures;
+        tactical.sort(Comparator.comparingInt(Minimax::tacticalOrderingScore).reversed());
+        return tactical;
+    }
+
+    private static int tacticalOrderingScore(final Move m) {
+        if (m.isAttack()) {
+            return m.getAttackedPiece().getPieceValue() * 10 - m.getMovedPiece().getPieceValue();
+        }
+        // Quiet promotion: order after captures
+        return 0;
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -83,8 +96,13 @@ public class Minimax implements MoveStrategy {
     }
 
     /**
-     * Lightweight Zobrist-style hash: XOR together (piece_type * 64 + square) for all pieces,
-     * plus a side-to-move bit.  Cheap, good enough for TT collision resistance in a hobby engine.
+     * Zobrist-style hash: XOR together piece/square contributions for all pieces,
+     * side-to-move, castling rights (via king/corner-rook first-move flags), and
+     * en passant target square.
+     *
+     * The original hash omitted castling rights and en passant state, so two positions
+     * with identical piece placement but different castling legality could collide in the
+     * transposition table and return a stale cached score — a real correctness bug.
      */
     private static long zobrist(final Board board) {
         long hash = 0L;
@@ -95,12 +113,43 @@ public class Minimax implements MoveStrategy {
             hash ^= pieceHash(p, false);
         }
         if (board.getCurrentPlayer().getAlliance().isWhite()) hash ^= 0x9E3779B97F4A7C15L;
+
+        // ── Castling rights ────────────────────────────────────────
+        // Hash the first-move status of the king and corner rooks — those are exactly
+        // the pieces castling rights depend on.
+        for (final Piece p : board.getWhitePieces()) hash ^= castlingBit(p);
+        for (final Piece p : board.getBlackPieces()) hash ^= castlingBit(p);
+
+        // ── En passant target square ──────────────────────────────
+        final Piece enPassantPawn = board.getEnPassantPawn();
+        if (enPassantPawn != null) {
+            hash ^= (enPassantPawn.getPiecePosition() + 1) * 0x27220A5F4A1A7C51L;
+        }
+
         return hash;
     }
 
     // ─────────────────────────────────────────────────────────────────
     //  Quiescence Search — extend depth on captures to avoid horizon effect
     // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Contributes a bit to the Zobrist hash for a king or corner rook that has NOT yet
+     * moved (i.e. still a potential castling participant). Once a king or corner rook
+     * has moved, it contributes nothing — its castling right is gone.
+     */
+    private static long castlingBit(final Piece p) {
+        final boolean isCorner = p.getPiecePosition() == 0 || p.getPiecePosition() == 7
+                || p.getPiecePosition() == 56 || p.getPiecePosition() == 63;
+        final boolean relevant = p.getPieceType() == Piece.PieceType.KING
+                || (p.getPieceType() == Piece.PieceType.ROOK && isCorner);
+        if (!relevant || !p.isFirstMove()) return 0L;
+
+        final long slot = p.getPieceType() == Piece.PieceType.KING
+                ? (p.getPieceAlliance().isWhite() ? 1L : 2L)
+                : (p.getPieceAlliance().isWhite() ? 10L : 20L) + p.getPiecePosition();
+        return slot * 0x9E3779B97F4A7C15L + 0xBF58476D1CE4E5B9L;
+    }
 
     private static long pieceHash(final Piece p, final boolean white) {
         // Spread bits: piece ordinal (0-5) * 128 + position (0-63) + white offset
@@ -239,6 +288,15 @@ public class Minimax implements MoveStrategy {
 
         Move bestMove = null;
 
+        // FIX (bug #4): fall back to the first legal move up front so execute() can never
+        // return null even if depth-1 search somehow fails to update bestMove (e.g. every
+        // move transition comes back not-done, which shouldn't normally happen for legal
+        // moves, but defensively guarding against it avoids an NPE for the caller).
+        final List<Move> rootLegalMoves = new ArrayList<>(board.getCurrentPlayer().getLegalMoves());
+        if (!rootLegalMoves.isEmpty()) {
+            bestMove = rootLegalMoves.getFirst();
+        }
+
         // Iterative deepening: search depth 1..searchDepth, carrying TT across iterations.
         // The best move from iteration d is placed first in the move list for iteration d+1.
         for (int currentDepth = 1; currentDepth <= this.searchDepth; currentDepth++) {
@@ -324,12 +382,28 @@ public class Minimax implements MoveStrategy {
 
         int lowestSeenValue = beta;
         Move bestLocal = null;
+        int moveCount = 0;
 
         for (final Move move : orderedMoves(board, ply)) {
             final MoveTransition t = board.getCurrentPlayer().makeMove(move);
             if (!t.getMoveStatus().isDone()) continue;
+            moveCount++;
 
-            final int value = max(t.getTransitionBoard(), depth - 1, alpha, lowestSeenValue, ply + 1);
+            int value;
+            // ── Late Move Reductions ──────────────────────────────────
+            // Quiet moves beyond the 4th at depth >= 3: try a reduced search first.
+            final boolean isQuiet = !move.isAttack() && !(move instanceof Move.PawnPromotion);
+            if (isQuiet && moveCount > 4 && depth >= 3
+                    && !board.getCurrentPlayer().isInCheck()
+                    && !t.getTransitionBoard().getCurrentPlayer().isInCheck()) {
+                value = max(t.getTransitionBoard(), depth - 2, alpha, lowestSeenValue, ply + 1);
+                // If the reduced search beats alpha, re-search at full depth
+                if (value < lowestSeenValue) {
+                    value = max(t.getTransitionBoard(), depth - 1, alpha, lowestSeenValue, ply + 1);
+                }
+            } else {
+                value = max(t.getTransitionBoard(), depth - 1, alpha, lowestSeenValue, ply + 1);
+            }
             if (value < lowestSeenValue) {
                 lowestSeenValue = value;
                 bestLocal = move;
@@ -373,12 +447,27 @@ public class Minimax implements MoveStrategy {
 
         int highestSeenValue = alpha;
         Move bestLocal = null;
+        int moveCount = 0;
 
         for (final Move move : orderedMoves(board, ply)) {
             final MoveTransition t = board.getCurrentPlayer().makeMove(move);
             if (!t.getMoveStatus().isDone()) continue;
+            moveCount++;
 
-            final int value = min(t.getTransitionBoard(), depth - 1, highestSeenValue, beta, ply + 1);
+            int value;
+            // ── Late Move Reductions ──────────────────────────────────
+            final boolean isQuiet = !move.isAttack() && !(move instanceof Move.PawnPromotion);
+            if (isQuiet && moveCount > 4 && depth >= 3
+                    && !board.getCurrentPlayer().isInCheck()
+                    && !t.getTransitionBoard().getCurrentPlayer().isInCheck()) {
+                value = min(t.getTransitionBoard(), depth - 2, highestSeenValue, beta, ply + 1);
+                // If the reduced search improves alpha, re-search at full depth
+                if (value > highestSeenValue) {
+                    value = min(t.getTransitionBoard(), depth - 1, highestSeenValue, beta, ply + 1);
+                }
+            } else {
+                value = min(t.getTransitionBoard(), depth - 1, highestSeenValue, beta, ply + 1);
+            }
             if (value > highestSeenValue) {
                 highestSeenValue = value;
                 bestLocal = move;
@@ -396,9 +485,12 @@ public class Minimax implements MoveStrategy {
     }
 
     /**
-     * At depth=0, keep searching captures until the position is "quiet".
+     * At depth=0, keep searching captures and promotions until the position is "quiet".
      * Prevents the engine from mis-evaluating positions mid-exchange.
      * Limited to QUIESCENCE_DEPTH_LIMIT extra plies to bound the tree.
+     *
+     * If the side to move is in check, stand-pat is skipped and all legal evasions are
+     * searched (not just captures), since a player in check has no "do nothing" option.
      *
      * @param maximising true if it is the maximising player's turn
      */
@@ -408,14 +500,31 @@ public class Minimax implements MoveStrategy {
 
     private int quiescence(final Board board, int alpha, int beta,
                            final boolean maximising, final int qDepth) {
+        final boolean inCheck = board.getCurrentPlayer().isInCheck();
         final int standPat = this.boardEvaluator.evaluate(board, 0);
-        if (qDepth >= QUIESCENCE_DEPTH_LIMIT || isEndGameScenario(board)) return standPat;
+
+        if (isEndGameScenario(board)) return standPat;
+        // Even at the qDepth limit, don't stand pat while in check — cap the check
+        // evasion search at the limit too, but don't return a static eval for a side
+        // that has no legal "do nothing" option.
+        if (qDepth >= QUIESCENCE_DEPTH_LIMIT && !inCheck) return standPat;
+
+        final Collection<Move> movesToSearch = inCheck
+                ? board.getCurrentPlayer().getLegalMoves()
+                : capturesAndPromotions(board);
 
         if (maximising) {
-            if (standPat >= beta) return beta;   // beta cut-off
-            alpha = Math.max(alpha, standPat);
-
-            for (final Move move : capturesOnly(board)) {
+            if (!inCheck) {
+                if (standPat >= beta) return beta;   // beta cut-off
+                alpha = Math.max(alpha, standPat);
+            }
+            if (inCheck && movesToSearch.isEmpty()) {
+                // No legal evasions while in check == checkmate; let the evaluator's
+                // mate scoring handle it via isEndGameScenario on the next ply, but as
+                // a safety net return the static eval here too.
+                return standPat;
+            }
+            for (final Move move : movesToSearch) {
                 final MoveTransition t = board.getCurrentPlayer().makeMove(move);
                 if (!t.getMoveStatus().isDone()) continue;
                 final int value = quiescence(t.getTransitionBoard(), alpha, beta, false, qDepth + 1);
@@ -424,10 +533,14 @@ public class Minimax implements MoveStrategy {
             }
             return alpha;
         } else {
-            if (standPat <= alpha) return alpha; // alpha cut-off
-            beta = Math.min(beta, standPat);
-
-            for (final Move move : capturesOnly(board)) {
+            if (!inCheck) {
+                if (standPat <= alpha) return alpha; // alpha cut-off
+                beta = Math.min(beta, standPat);
+            }
+            if (inCheck && movesToSearch.isEmpty()) {
+                return standPat;
+            }
+            for (final Move move : movesToSearch) {
                 final MoveTransition t = board.getCurrentPlayer().makeMove(move);
                 if (!t.getMoveStatus().isDone()) continue;
                 final int value = quiescence(t.getTransitionBoard(), alpha, beta, true, qDepth + 1);
