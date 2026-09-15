@@ -151,6 +151,22 @@ class ChessCoreTest {
     }
 
     @Test
+    @DisplayName("toFEN: en-passant field correct after pawn jump (e2e4 → e3, not e5)")
+    void toFenEnPassantCorrect() {
+        // Play 1.e4 from starting position — white pawn jumps to e4, ep target must be e3
+        final List<Move> moves = playMoves(Board.createStandardBoard(), "e2e4");
+        final Board after = Board.fromFEN("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -");
+        // Replay through makeMove so the enPassantPawn is set on the board
+        final Board afterE4 = Board.createStandardBoard()
+                .getCurrentPlayer().makeMove(moves.getFirst()).getTransitionBoard();
+        final String fen = afterE4.toFEN();
+        assertTrue(fen.contains(" e3 ") || fen.endsWith(" e3") || fen.contains(" e3"),
+                "EP target should be e3 after 1.e4, but FEN was: " + fen);
+        assertFalse(fen.contains(" e5"),
+                "EP target must NOT be e5 after 1.e4, but FEN was: " + fen);
+    }
+
+    @Test
     @DisplayName("fromFEN: no en-passant when field is dash")
     void fenNoEnPassant() {
         final Board board = Board.fromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -");

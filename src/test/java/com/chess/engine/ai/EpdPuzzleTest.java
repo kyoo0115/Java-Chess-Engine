@@ -2,7 +2,7 @@ package com.chess.engine.ai;
 
 import com.chess.engine.board.Board;
 import com.chess.engine.board.Move;
-import com.chess.engine.player.ai.Minimax;
+import com.chess.engine.player.ai.StockfishEngine;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static com.chess.engine.pieces.Piece.PieceType.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -32,8 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class EpdPuzzleTest {
 
-    /** Search depth used for all puzzles — deep enough to solve mates-in-2 reliably. */
-    private static final int PUZZLE_DEPTH = 5;
+    /** Movetime in ms given to Stockfish per puzzle move — enough to solve mates reliably. */
+    private static final int PUZZLE_MOVETIME_MS = 1000;
 
     // ── Puzzle loading ────────────────────────────────────────────────────────
 
@@ -96,6 +97,8 @@ class EpdPuzzleTest {
     @MethodSource("puzzles")
     @DisplayName("EPD puzzle suite")
     void solvesPuzzle(final PuzzleCase puzzle) {
+        assumeTrue(StockfishEngine.isAvailable(), "Stockfish binary not found — skipping EPD tests");
+
         final Board board;
         try {
             board = Board.fromFEN(puzzle.fen());
@@ -105,8 +108,8 @@ class EpdPuzzleTest {
         }
 
         final Move found;
-        try {
-            found = new Minimax(PUZZLE_DEPTH).execute(board);
+        try (final StockfishEngine engine = new StockfishEngine(PUZZLE_MOVETIME_MS)) {
+            found = engine.execute(board);
         } catch (Exception e) {
             System.err.println("Skipping " + puzzle.id() + " — engine crashed: " + e.getMessage());
             return;

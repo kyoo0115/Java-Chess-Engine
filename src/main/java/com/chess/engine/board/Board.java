@@ -232,13 +232,15 @@ public class Board {
         }
         sb.append(castling.isEmpty() ? "-" : castling);
         sb.append(' ');
-        // En passant
+        // En passant — the target square is one step *behind* the pawn that just jumped:
+        // White pawn jumped forward (decreasing tile index), so ep square = pos + 8 (one rank back).
+        // Black pawn jumped forward (increasing tile index), so ep square = pos - 8.
         if (enPassantPawn != null) {
-            int pos = enPassantPawn.getPiecePosition();
-            int epRank = enPassantPawn.getPieceAlliance().isWhite() ? pos - 8 : pos + 8;
-            char file = (char) ('a' + (epRank % 8));
-            int rank = 8 - (epRank / 8);
-            sb.append(file).append(rank);
+            final int pos = enPassantPawn.getPiecePosition();
+            final int epTile = enPassantPawn.getPieceAlliance().isWhite() ? pos + 8 : pos - 8;
+            final char epFile = (char) ('a' + epTile % 8);
+            final int  epRank = 8 - epTile / 8;
+            sb.append(epFile).append(epRank);
         } else {
             sb.append('-');
         }

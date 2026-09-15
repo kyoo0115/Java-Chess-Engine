@@ -8,7 +8,7 @@ import com.chess.engine.board.MoveLog;
 import com.chess.engine.board.Tile;
 import com.chess.engine.pieces.*;
 import com.chess.engine.player.MoveTransition;
-import com.chess.engine.player.ai.Minimax;
+import com.chess.engine.player.ai.StockfishEngine;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -64,6 +64,9 @@ public class Table implements TableContext {
     private boolean highlightLastMove = true;
     private boolean gameOver = false;
     private boolean engineVsEnginePaused = false;
+    // ── Stockfish engine instance (kept alive across moves) ──────────
+    private StockfishEngine stockfishEngine = null;
+    private AIThinkTank currentThinkTank = null;
     // ── Draw detection (fifty-move rule + threefold repetition) ──────
     private final Map<String, Integer> positionHistory = new HashMap<>();
     private int halfMoveClock = 0;
@@ -105,7 +108,7 @@ public class Table implements TableContext {
         chessBoard = Board.createStandardBoard();
         moveLog = new MoveLog();
         gameSetup = new GameSetup(gameFrame, true);
-        gameSetup.setDifficulty(PREFS.getInt("difficultyIndex", 1), PREFS.getInt("customDepth", 4));
+        gameSetup.setDifficulty(PREFS.getInt("difficultyIndex", 1), PREFS.getInt("customDepth", 1000));
 
         gameFrame.setJMenuBar(createTableMenuBar());
         gameFrame.setSize(OUTER_FRAME_DIMENSION);
@@ -231,7 +234,14 @@ public class Table implements TableContext {
 
         boardDirection = BoardDirection.NORMAL;
 
-        gameFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        gameFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        gameFrame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                closeEngine();
+                System.exit(0);
+            }
+        });
         gameFrame.setLocationRelativeTo(null);
         applyAppBg();
         gameFrame.setVisible(true);
@@ -505,7 +515,7 @@ public class Table implements TableContext {
 
     private void setupAfterGameSetup() {
         PREFS.putInt("difficultyIndex", gameSetup.getDifficultyIndex());
-        PREFS.putInt("customDepth", gameSetup.getCustomDepth());
+        PREFS.putInt("customDepth", gameSetup.getCustomMoveTime());
         clockPanel.configure(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
             if (gameSetup.isAIPlayer(chessBoard.getCurrentPlayer())) fireAIThinkTank();
@@ -542,7 +552,8 @@ public class Table implements TableContext {
         if (engineVsEnginePaused) return;
         leftSidebar.updateStatus("Thinking…");
         gameFrame.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        new AIThinkTank().execute();
+        currentThinkTank = new AIThinkTank();
+        currentThinkTank.execute();
     }
 
     private void tryMove(final int fromId, final int toId) {
@@ -808,6 +819,7 @@ public class Table implements TableContext {
         gameOver = false;
         positionHistory.clear();
         halfMoveClock = 0;
+        closeEngine();
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
             clockPanel.redoTakenPieces(moveLog);
@@ -842,6 +854,7 @@ public class Table implements TableContext {
         engineVsEnginePaused = false;
         positionHistory.clear();
         halfMoveClock = 0;
+        closeEngine();
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
             clockPanel.redoTakenPieces(moveLog);
@@ -874,6 +887,7 @@ public class Table implements TableContext {
             engineVsEnginePaused = false;
             positionHistory.clear();
             halfMoveClock = 0;
+            closeEngine();
             boardPanel.clearAnnotations();
             SwingUtilities.invokeLater(() -> {
                 historyAndControlsPanel.redo(chessBoard, moveLog);
@@ -950,6 +964,7 @@ public class Table implements TableContext {
         engineVsEnginePaused = false;
         positionHistory.clear();
         halfMoveClock = 0;
+        closeEngine();
         boardPanel.clearAnnotations();
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
@@ -979,6 +994,7 @@ public class Table implements TableContext {
         engineVsEnginePaused = false;
         positionHistory.clear();
         halfMoveClock = 0;
+        closeEngine();
         clockPanel.reset(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
@@ -990,17 +1006,44 @@ public class Table implements TableContext {
         });
     }
 
+    // ── Engine lifecycle ──────────────────────────────────────────────
+
+    /** Closes the Stockfish process if one is running, and clears the reference. */
+    private void closeEngine() {
+        // Cancel the SwingWorker first — this sets isCancelled() so done() bails out
+        if (currentThinkTank != null) {
+            currentThinkTank.cancel(true);
+            currentThinkTank = null;
+        }
+        // Then close the Stockfish process (this also unblocks any blocking readBestMove)
+        if (stockfishEngine != null) {
+            stockfishEngine.close();
+            stockfishEngine = null;
+        }
+        gameFrame.setCursor(Cursor.getDefaultCursor());
+    }
+
     // ── AI worker ─────────────────────────────────────────────────────
 
     private class AIThinkTank extends SwingWorker<Move, Void> {
         @Override
         protected Move doInBackground() {
-            return new Minimax(gameSetup.getSearchDepth()).execute(chessBoard);
+            try {
+                if (stockfishEngine == null) {
+                    stockfishEngine = new StockfishEngine(gameSetup.getMoveTimeMs());
+                }
+                final Move move = stockfishEngine.execute(chessBoard);
+                return move;
+            } catch (Exception e) {
+                System.err.println("StockfishEngine error: " + e.getMessage());
+                return null;
+            }
         }
 
         @Override
         protected void done() {
             gameFrame.setCursor(Cursor.getDefaultCursor());
+            if (isCancelled()) return; // game was reset — discard this result
             try {
                 final Move m = get();
                 if (m == null) {

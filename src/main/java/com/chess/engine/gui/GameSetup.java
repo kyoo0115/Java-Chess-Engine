@@ -3,6 +3,7 @@ package com.chess.engine.gui;
 import com.chess.engine.Alliance;
 import com.chess.engine.PlayerType;
 import com.chess.engine.player.Player;
+import com.chess.engine.player.ai.StockfishEngine;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -15,7 +16,8 @@ import java.util.List;
 public class GameSetup extends JDialog {
 
     private static final String[] DIFFICULTY_LABELS = {"Easy", "Medium", "Hard", "Master", "Custom"};
-    private static final int[] DIFFICULTY_DEPTHS = {2, 4, 6, 8, -1};
+    /** Movetime in ms for each difficulty preset. -1 = custom. */
+    private static final int[] DIFFICULTY_MOVETIMES = {100, 500, 2000, 5000, -1};
 
     private static final int[] PRESET_MINUTES = {1, 3, 5, 10, 15, 30, -1};
     private static final String[] TIME_LABELS = {"1 min", "3 min", "5 min", "10 min", "15 min", "30 min", "Custom"};
@@ -164,11 +166,11 @@ public class GameSetup extends JDialog {
         diffCard.add(diffPillsRow, BorderLayout.CENTER);
 
         // Custom search depth row (shown only when 'Custom' is selected)
-        customDepthSpinner = new JSpinner(new SpinnerNumberModel(4, 1, 20, 1));
+        customDepthSpinner = new JSpinner(new SpinnerNumberModel(1000, 100, 30000, 100));
         styleSpinner(customDepthSpinner);
         customSpinnerRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
         customSpinnerRow.setOpaque(false);
-        final JLabel depthLbl = new JLabel("Custom Search Depth (ply):");
+        final JLabel depthLbl = new JLabel("Custom Think Time (ms):");
         depthLbl.setFont(new Font("SansSerif", Font.PLAIN, 12));
         depthLbl.setForeground(UITheme.getTextSecondary());
         customSpinnerRow.add(depthLbl);
@@ -499,28 +501,29 @@ public class GameSetup extends JDialog {
         return getBlackPlayerType() == PlayerType.COMPUTER;
     }
 
-    public int getSearchDepth() {
-        if (selectedDiffIdx >= 0 && selectedDiffIdx < DIFFICULTY_DEPTHS.length) {
-            if (DIFFICULTY_DEPTHS[selectedDiffIdx] == -1) {
+    /** Returns the movetime in ms for the currently selected difficulty. */
+    public int getMoveTimeMs() {
+        if (selectedDiffIdx >= 0 && selectedDiffIdx < DIFFICULTY_MOVETIMES.length) {
+            if (DIFFICULTY_MOVETIMES[selectedDiffIdx] == -1) {
                 return (int) customDepthSpinner.getValue();
             }
-            return DIFFICULTY_DEPTHS[selectedDiffIdx];
+            return DIFFICULTY_MOVETIMES[selectedDiffIdx];
         }
-        return 4;
+        return StockfishEngine.MOVETIME_MEDIUM;
     }
 
     public int getDifficultyIndex() {
         return selectedDiffIdx;
     }
 
-    public int getCustomDepth() {
+    public int getCustomMoveTime() {
         return (int) customDepthSpinner.getValue();
     }
 
-    public void setDifficulty(final int comboIndex, final int customDepth) {
+    public void setDifficulty(final int comboIndex, final int customMoveTime) {
         final int safeIndex = (comboIndex >= 0 && comboIndex < DIFFICULTY_LABELS.length) ? comboIndex : 1;
         selectedDiffIdx = safeIndex;
-        customDepthSpinner.setValue(customDepth);
+        customDepthSpinner.setValue(customMoveTime);
         final boolean isCustom = safeIndex == DIFFICULTY_LABELS.length - 1;
         customSpinnerRow.setVisible(isCustom);
         for (JLabel p : diffPills) p.repaint();

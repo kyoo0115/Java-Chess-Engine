@@ -3,48 +3,51 @@ package com.chess.engine.ai;
 import com.chess.engine.board.Board;
 import com.chess.engine.board.Move;
 import com.chess.engine.player.MoveTransition;
-import com.chess.engine.player.ai.Minimax;
+import com.chess.engine.player.ai.StockfishEngine;
 
-import java.util.function.Supplier;
+import java.io.IOException;
 
 /**
- * Engine-vs-Engine match runner.
+ * Engine-vs-Engine match runner using Stockfish at two different move-time settings.
  *
- * <p>Plays two {@link Minimax} configurations against each other over a
- * configurable number of games, alternating colours, and computes:
+ * <p>Plays two Stockfish configurations against each other over a configurable number
+ * of games, alternating colours, and computes:
  * <ul>
  *   <li>Win / Draw / Loss counts for Engine A</li>
  *   <li>Score percentage</li>
  *   <li>Estimated Elo difference  Δ = 400 × log₁₀(W/L)</li>
  * </ul>
  *
- * <p>Run with: {@code ./gradlew run} (or execute main() directly from your IDE).
- * Adjust {@link #GAMES} and the two engine factories at the top of {@code main()}.
- *
- * <p>A single game is capped at {@link #MAX_PLIES} half-moves to avoid infinite loops
- * in positions where neither side can force a win.
+ * <p>Run directly from the IDE or with:
+ * <pre>
+ *   ./gradlew test --tests "com.chess.engine.ai.EngineMatch"
+ * </pre>
+ * Adjust {@link #GAMES} and the two move-time constants at the top of {@code main()}.
  */
 public class EngineMatch {
 
     /** Total number of games to play (split evenly: A-white then A-black). */
-    private static final int GAMES = 20;
+    private static final int GAMES = 10;
 
     /**
      * Maximum half-moves per game before declaring a draw.
-     * 200 plies ≈ 100 full moves — well beyond any realistic game length at low depth.
+     * 200 plies ≈ 100 full moves — well beyond any realistic game length.
      */
     private static final int MAX_PLIES = 200;
 
-    public static void main(final String[] args) {
+    public static void main(final String[] args) throws IOException {
+        if (!StockfishEngine.isAvailable()) {
+            System.err.println("Stockfish binary not found — cannot run engine match.");
+            System.err.println("Install Stockfish and ensure it is on PATH or at C:\\stockfish\\stockfish.exe");
+            return;
+        }
+
         // ── Configure the two engines here ───────────────────────────────────
-        // Engine A = "new" (with all recent improvements)
-        final Supplier<Minimax> engineA = () -> new Minimax(4);
+        final int movetimeA = 500;   // Engine A — 500 ms/move
+        final int movetimeB = 100;   // Engine B — 100 ms/move (weaker)
 
-        // Engine B = "baseline" (weaker / shallower)
-        final Supplier<Minimax> engineB = () -> new Minimax(3);
-
-        final String nameA = "Engine-A (depth 4)";
-        final String nameB = "Engine-B (depth 3)";
+        final String nameA = "Stockfish-" + movetimeA + "ms";
+        final String nameB = "Stockfish-" + movetimeB + "ms";
         // ─────────────────────────────────────────────────────────────────────
 
         System.out.println("╔══════════════════════════════════════════════════╗");
@@ -58,21 +61,23 @@ public class EngineMatch {
         int winsA = 0, winsB = 0, draws = 0;
 
         for (int g = 1; g <= GAMES; g++) {
-            // Alternate colours every game
             final boolean aIsWhite = (g % 2 == 1);
-            final Minimax white = aIsWhite ? engineA.get() : engineB.get();
-            final Minimax black = aIsWhite ? engineB.get() : engineA.get();
             final String whiteLabel = aIsWhite ? nameA : nameB;
             final String blackLabel = aIsWhite ? nameB : nameA;
 
-            final GameResult result = playGame(white, black, g, whiteLabel, blackLabel);
+            // Create fresh engine instances per game so TT and state don't bleed across
+            try (final StockfishEngine white = new StockfishEngine(aIsWhite ? movetimeA : movetimeB);
+                 final StockfishEngine black = new StockfishEngine(aIsWhite ? movetimeB : movetimeA)) {
 
-            if (result == GameResult.WHITE_WIN) {
-                if (aIsWhite) winsA++; else winsB++;
-            } else if (result == GameResult.BLACK_WIN) {
-                if (!aIsWhite) winsA++; else winsB++;
-            } else {
-                draws++;
+                final GameResult result = playGame(white, black, g, whiteLabel, blackLabel);
+
+                if (result == GameResult.WHITE_WIN) {
+                    if (aIsWhite) winsA++; else winsB++;
+                } else if (result == GameResult.BLACK_WIN) {
+                    if (!aIsWhite) winsA++; else winsB++;
+                } else {
+                    draws++;
+                }
             }
 
             final int played = winsA + winsB + draws;
@@ -97,15 +102,14 @@ public class EngineMatch {
         if (winsA > 0 && winsB > 0) {
             final double eloDelta = 400.0 * Math.log10((double) winsA / winsB);
             System.out.printf("  Estimated Elo delta (wins only): %+.0f%n", eloDelta);
-        } else if (winsA > 0 && winsB == 0) {
+        } else if (winsA > 0) {
             System.out.println("  Estimated Elo delta: >> +400 (no losses recorded)");
-        } else if (winsA == 0 && winsB > 0) {
+        } else if (winsB > 0) {
             System.out.println("  Estimated Elo delta: << -400 (no wins recorded)");
         } else {
             System.out.println("  Estimated Elo delta: N/A (all draws)");
         }
 
-        // Full Elo estimate using score percentage (more robust with draws)
         if (score > 0.0 && score < 1.0) {
             final double eloDeltaScore = -400.0 * Math.log10(1.0 / score - 1.0);
             System.out.printf("  Estimated Elo delta (score %%):   %+.0f%n", eloDeltaScore);
@@ -115,7 +119,7 @@ public class EngineMatch {
 
     // ── Single game ──────────────────────────────────────────────────────────
 
-    private static GameResult playGame(final Minimax white, final Minimax black,
+    private static GameResult playGame(final StockfishEngine white, final StockfishEngine black,
                                        final int gameNo,
                                        final String whiteLabel, final String blackLabel) {
         Board board = Board.createStandardBoard();
@@ -137,7 +141,7 @@ public class EngineMatch {
                 return GameResult.DRAW;
             }
 
-            final Minimax engine = board.getCurrentPlayer().getAlliance().isWhite() ? white : black;
+            final StockfishEngine engine = board.getCurrentPlayer().getAlliance().isWhite() ? white : black;
             final Move move = engine.execute(board);
 
             if (move == null) {
