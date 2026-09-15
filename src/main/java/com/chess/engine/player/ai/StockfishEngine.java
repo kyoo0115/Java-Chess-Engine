@@ -85,11 +85,17 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         send("isready");
         waitFor("readyok");
 
+        System.out.printf("StockfishEngine started  (pid=%d, threads=%d, movetime=%d ms)%n",
+                process.pid(), threads, moveTimeMs);
+
         // Shutdown hook — kills the process if the JVM exits without close() being
         // called (e.g. IDE stop button, uncaught exception in main thread).
         final Process proc = this.process;
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            if (proc.isAlive()) proc.destroyForcibly();
+            if (proc.isAlive()) {
+                System.out.println("StockfishEngine shutdown hook: killing pid " + proc.pid());
+                proc.destroyForcibly();
+            }
         }, "stockfish-shutdown-hook"));
     }
 
@@ -117,6 +123,7 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
     @Override
     public void close() {
         closed = true;
+        System.out.println("StockfishEngine closing  (pid=" + process.pid() + ")");
         try {
             send("quit");
         } catch (IOException ignored) {
@@ -127,6 +134,7 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        System.out.println("StockfishEngine closed   (alive=" + process.isAlive() + ")");
     }
 
     // ── UCI helpers ───────────────────────────────────────────────────────────
