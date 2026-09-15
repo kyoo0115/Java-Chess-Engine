@@ -239,6 +239,7 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
                 mobility(player) +
                 check(player) +
                 castled(player) +
+                castlingRightsLost(player, board) +
                 pawnStructure(player, board);
     }
 
