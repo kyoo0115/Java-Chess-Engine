@@ -14,7 +14,7 @@
 
 # KQK corner: White Qb6 + Ka6, Black Ka8. 1.Qb7#
 # Ka8 has no escape: a7 covered by Ka6, b8 covered by Qb6.
-k7/8/KQ6/8/8/8/8/8 w - - bm b6b7; id "M1-queen-corner"; c0 "Queen mates on b7";
+# k7/8/KQ6/8/8/8/8/8 w - - bm b6b7; id "M1-queen-corner"; c0 "Queen mates on b7";
 
 # Rook + King vs King: White Ra8+Kd6, Black Kb8 — already mate.
 # One step before: White Ra1+Kd6, Black Kd8 is WRONG (Kd6 adjacent).
@@ -31,7 +31,7 @@ k7/8/KQ6/8/8/8/8/8 w - - bm b6b7; id "M1-queen-corner"; c0 "Queen mates on b7";
 # VERIFIED WORKING: White Ra8+Kb6, Black Ka8 = Black is already in checkmate.
 # One step before: White Rooks not on 8th yet.
 # White: Ra1, Kb6; Black: Ka8. 1.Ra8#. Check: Ka8 can go to b8? No, Kb6 covers b8! YES.
-8/8/1K6/8/8/8/8/R6k w - - bm a1a8; id "M1-rook-corner"; c0 "Ra8 checkmate — Kb6 covers b8 escape";
+k7/8/1K6/8/8/8/8/R7 w - - bm a1a8; id "M1-rook-corner"; c0 "Ra8 checkmate — Kb6 covers b8 escape";
 
 # Smothered-ish: White Qh5+Kg1, Black Kg8+pawns. 1.Qh7# or 1.Qh8#? 
 # Simplest verified: White Qd8+Ke6, Black Ke8. 1.Qd8 already on d8... 
@@ -132,7 +132,7 @@ r3k3/8/2q5/4N3/8/8/8/4K3 w - - bm e5c6; id "TAC-free-queen"; c0 "Knight takes un
 #    BUT: Qb6 covers b8 already (queen on b6, b8 is on same file). YES! Qb6 covers b8.
 #    After Qb7+, Ka8→b8 is covered by the queen now on b7. Ka8→a7? Ka6 is adjacent to a7.
 #    So Ka8 is in checkmate after Qb7. Confirmed.)
-k7/8/KQ6/8/8/8/8/8 w - - bm b6b7; id "M1-queen-corner"; c0 "Qb7# (Ka8 has no escape)";
+k7/8/KQ6/8/8/8/8/8 w - - bm b6b7 b6a7; id "M1-queen-corner"; c0 "Qb7# or Qa7# (both checkmate Ka8)";
 
 # 3. Mate in 2: Opera-style back-rank
 #    White Ra8+Rb1, Black Rb8+Kg8+pawns f7/g7/h7.
