@@ -3,17 +3,12 @@ package com.chess.engine.player;
 import com.chess.engine.Alliance;
 import com.chess.engine.board.Board;
 import com.chess.engine.board.Move;
-import com.chess.engine.board.Tile;
 import com.chess.engine.pieces.Piece;
-import com.chess.engine.pieces.Rook;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
-import static com.chess.engine.board.Move.KingSideCastleMove;
-import static com.chess.engine.board.Move.QueenSideCastleMove;
 
 public class WhitePlayer extends Player {
     public WhitePlayer(final Board board, final Collection<Move> whiteStandardLegalMoves,
@@ -41,55 +36,15 @@ public class WhitePlayer extends Player {
         final List<Move> kingCastles = new ArrayList<>();
 
         if (!this.playerKing.isFirstMove() || isInCheck() || this.playerKing.getPiecePosition() != 60) {
-            return ImmutableList.copyOf(kingCastles); // king cannot castle
+            return ImmutableList.copyOf(kingCastles);
         }
 
-        // King-side castle
-        addKingSideCastle(kingCastles);
+        // King-side: f1=61, g1=62, rook=63 → rook dest 61
+        addCastleIfLegal(kingCastles, 62, 63, 61, new int[]{61, 62}, new int[]{61, 62}, Alliance.BLACK, true);
 
-        // Queen-side castle
-        addQueenSideCastle(kingCastles);
+        // Queen-side: b1=57, c1=58, d1=59, rook=56 → rook dest 59
+        addCastleIfLegal(kingCastles, 58, 56, 59, new int[]{57, 58, 59}, new int[]{58, 59}, Alliance.BLACK, false);
 
         return ImmutableList.copyOf(kingCastles);
-    }
-
-    private void addKingSideCastle(List<Move> kingCastles) {
-        Tile fTile = this.board.getTile(61);
-        Tile gTile = this.board.getTile(62);
-        Tile rookTile = this.board.getTile(63);
-
-        if (!fTile.isTileOccupied() && !gTile.isTileOccupied() && isRookEligibleForCastle(rookTile)) {
-            if (!Player.isSquareAttackedBy(this.board, 61, Alliance.BLACK) &&
-                    !Player.isSquareAttackedBy(this.board, 62, Alliance.BLACK) &&
-                    rookTile.getPiece().getPieceType().isRook()) {
-                kingCastles.add(new KingSideCastleMove(this.board, this.playerKing, 62,
-                        (Rook) rookTile.getPiece(), rookTile.getTileCoordinate(), 61) {
-                });
-            }
-        }
-    }
-
-    private void addQueenSideCastle(List<Move> kingCastles) {
-        Tile bTile = this.board.getTile(57);
-        Tile cTile = this.board.getTile(58);
-        Tile dTile = this.board.getTile(59);
-        Tile rookTile = this.board.getTile(56);
-
-        if (!bTile.isTileOccupied() &&
-                !cTile.isTileOccupied() &&
-                !dTile.isTileOccupied() && isRookEligibleForCastle(rookTile)) {
-
-            if (!Player.isSquareAttackedBy(this.board, 58, Alliance.BLACK) &&
-                    !Player.isSquareAttackedBy(this.board, 59, Alliance.BLACK) &&
-                    rookTile.getPiece().getPieceType().isRook()) {
-
-                kingCastles.add(new QueenSideCastleMove(this.board, this.playerKing, 58,
-                        (Rook) rookTile.getPiece(), rookTile.getTileCoordinate(), 59));
-            }
-        }
-    }
-
-    private boolean isRookEligibleForCastle(Tile rookTile) {
-        return rookTile.isTileOccupied() && rookTile.getPiece().isFirstMove();
     }
 }

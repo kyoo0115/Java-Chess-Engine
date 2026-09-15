@@ -5,11 +5,13 @@ import com.chess.engine.board.Board;
 import com.chess.engine.board.Move;
 import com.chess.engine.pieces.King;
 import com.chess.engine.pieces.Piece;
+import com.chess.engine.pieces.Rook;
 import com.chess.engine.util.BoardUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.Collection;
+import java.util.List;
 
 public abstract class Player {
 
@@ -228,4 +230,40 @@ public abstract class Player {
     public abstract Player getOpponent();
 
     protected abstract Collection<Move> calculateKingCastles(Collection<Move> playerLegals, Collection<Move> opponentLegals);
+
+    // ── Shared castling helper ────────────────────────────────────────────────
+
+    /**
+     * Attempts to add a king-side or queen-side castle move to {@code castles}.
+     *
+     * @param castles          output list
+     * @param kingDest         destination square for the king
+     * @param rookSquare       current square of the rook
+     * @param rookDest         destination square for the rook
+     * @param emptySquares     squares that must be unoccupied
+     * @param transitSquares   squares the king passes through (must not be attacked)
+     * @param attacker         the opponent's alliance (used for attack detection)
+     * @param kingSide         true → KingSideCastleMove, false → QueenSideCastleMove
+     */
+    protected void addCastleIfLegal(final List<Move> castles,
+                                    final int kingDest, final int rookSquare, final int rookDest,
+                                    final int[] emptySquares, final int[] transitSquares,
+                                    final Alliance attacker, final boolean kingSide) {
+        for (final int sq : emptySquares) {
+            if (board.getTile(sq).isTileOccupied()) return;
+        }
+        final com.chess.engine.board.Tile rookTile = board.getTile(rookSquare);
+        if (!rookTile.isTileOccupied()) return;
+        if (!rookTile.getPiece().isFirstMove()) return;
+        if (!rookTile.getPiece().getPieceType().isRook()) return;
+        for (final int sq : transitSquares) {
+            if (isSquareAttackedBy(board, sq, attacker)) return;
+        }
+        final Rook rook = (Rook) rookTile.getPiece();
+        if (kingSide) {
+            castles.add(new Move.KingSideCastleMove(board, playerKing, kingDest, rook, rookSquare, rookDest));
+        } else {
+            castles.add(new Move.QueenSideCastleMove(board, playerKing, kingDest, rook, rookSquare, rookDest));
+        }
+    }
 }

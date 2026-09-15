@@ -3,15 +3,11 @@ package com.chess.engine.pieces;
 import com.chess.engine.Alliance;
 import com.chess.engine.board.Board;
 import com.chess.engine.board.Move;
-import com.chess.engine.board.Move.MajorAttackMove;
-import com.chess.engine.board.Tile;
 import com.chess.engine.util.BoardUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static com.chess.engine.board.Move.MajorMove;
 
 public final class Queen extends Piece {
 
@@ -25,48 +21,13 @@ public final class Queen extends Piece {
         super(PieceType.QUEEN, piecePosition, pieceAlliance, isFirstMove);
     }
 
-    private static boolean isColumnExclusion(final int position, final int offset) {
-        return (BoardUtils.isFirstColumn(position) && (offset == -9 || offset == -1 || offset == 7))
-                || (BoardUtils.isEighthColumn(position) && (offset == -7 || offset == 1 || offset == 9));
-    }
-
     @Override
     public List<Move> calculateLegalMoves(final Board board) {
-
         final List<Move> legalMoves = new ArrayList<>();
-
-        for (final int offset : QUEEN_MOVE_OFFSETS) {
-
-            int destinationCoordinate = this.piecePosition;
-
-            while (true) {
-
-                if (isColumnExclusion(destinationCoordinate, offset)) {
-                    break;
-                }
-
-                destinationCoordinate += offset;
-
-                if (!BoardUtils.isValidTileCoordinate(destinationCoordinate)) {
-                    break;
-                }
-
-                final Tile candidateTile = board.getTile(destinationCoordinate);
-
-                if (!candidateTile.isTileOccupied()) {
-                    legalMoves.add(new MajorMove(board, this, destinationCoordinate));
-                } else {
-                    final Piece pieceAtDestination = candidateTile.getPiece();
-
-                    if (this.pieceAlliance != pieceAtDestination.getPieceAlliance()) {
-                        legalMoves.add(new MajorAttackMove(board, this, destinationCoordinate, pieceAtDestination));
-                    }
-                    break;
-                }
-            }
-
-        }
-
+        addSlidingMoves(board, this, this.piecePosition, QUEEN_MOVE_OFFSETS,
+                (pos, off) -> (BoardUtils.isFirstColumn(pos) && (off == -9 || off == -1 || off == 7))
+                           || (BoardUtils.isEighthColumn(pos) && (off == -7 || off == 1 || off == 9)),
+                legalMoves);
         return ImmutableList.copyOf(legalMoves);
     }
 
