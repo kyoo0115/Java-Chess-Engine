@@ -1,31 +1,57 @@
-# JChess
+# JavaChess
 
-A fully-featured chess game written in Java with a Swing GUI and a built-in AI opponent.
+A fully-featured chess game written in Java with a Swing GUI and a Stockfish AI opponent.
+
+![Java](https://img.shields.io/badge/Java-17%2B-blue) ![Gradle](https://img.shields.io/badge/Gradle-9.x-green)
 
 ## Features
 
-- **Full chess rules** — all standard moves including castling, en passant, and pawn promotion
-- **Drag-and-drop or click-to-move** input on the board
+### Gameplay
+- **Full chess rules** — castling, en passant, pawn promotion, fifty-move rule, threefold repetition
+- **Drag-and-drop or click-to-move** input
 - **Pawn promotion dialog** — choose Queen, Rook, Bishop, or Knight via a piece-icon dialog
-- **AI opponent** powered by Minimax with alpha-beta pruning, transposition table, killer moves, quiescence search, and
-  MVV-LVA move ordering
-- **Difficulty presets** — Easy (depth 2), Medium (depth 4), Hard (depth 6), Master (depth 8), or Custom depth via Game
-  Setup
-- **Endgame-aware evaluation** — switches to a centralisation king PST when material drops below ~1300 cp
-- **Move arrow overlay** — a chess.com-style orange arrow shows the last move played (for both human and AI moves)
-- **Red king highlight** — the king's tile is tinted red when in check
-- **Undo / Take-back** — File → Undo (or Ctrl+Z) takes back the last move (2 plies in Human vs Computer, 1 in Human vs
-  Human)
-- **Sound effects** — move, capture, check, castle, and game-end sounds via MP3 files (lichess open-source audio)
-- **Three board themes** — Classic, Green, Blue
-- **Optional visual aids** — legal-move dots on click/hover, last-move highlight, selected-tile highlight, board
-  coordinate labels
+- **Draw detection** — fifty-move rule and threefold repetition handled automatically
+
+### AI
+- **Stockfish engine** — connects to a local Stockfish process via the UCI protocol
+- **Difficulty presets** — Easy (100 ms), Medium (500 ms), Hard (2 s), Master (5 s), or Custom think time
+- **Engine vs Engine** — both sides can be set to Computer for automated play, with pause/resume
+- **AI move animation** — smooth piece glide when the engine plays
+
+### Clock
+- **Configurable chess clock** — presets: 1, 3, 5, 10, 15, 30 min, or custom
+- **Decimal countdown** — displays `mm:ss` normally, switches to `ss.d` (tenths) when under one minute
+- **Per-player cards** — active player highlighted with a green border
+
+### UI
+- **Modern Swing interface** — header bar with tab navigation, left sidebar, right panel with clock and history
+- **Light / Dark theme** — toggle at any time; preference persisted across sessions
+- **Four board themes** — Wood Modern (default), Classic, Green, Blue
+- **Move arrow overlay** — gold arrow shows the last move played by either side
+- **Right-click annotations** — draw arrows and circles on the board (green)
+- **Red king highlight** — king tile tinted red when in check
+- **Coordinate labels** — rank and file labels on the board edges
+- **Legal move dots** — dots on valid destination squares when dragging or hovering
 - **Flip board** — view from either side
-- **Game history panel** — scrollable move list in algebraic-style notation
-- **Taken pieces panel** — captured pieces displayed per side with material advantage
-- **Configurable player types** — each side can be Human or Computer independently
-- **Persistent preferences** — board theme, sound, highlights, coordinates, and difficulty are saved across sessions (no
-  config file needed — uses the JDK `Preferences` API)
+- **Hover highlight** — show legal moves on mouse-over (optional)
+
+### Panels & History
+- **Game history panel** — scrollable move list in algebraic notation with last-move pill highlight
+- **Taken pieces panel** — captured pieces per side with material advantage indicator
+- **Clock cards** — per-player time display inside the right sidebar
+
+### File Operations
+- **Save / Load PGN** — export and import games in standard PGN format (Ctrl+S / Ctrl+O)
+- **Load FEN** — paste any FEN string to jump to an arbitrary position
+- **Export board image** — save the current board view as a PNG file
+- **Board editor** — drag-and-drop position editor (File → Edit Position…)
+
+### Misc
+- **Sound effects** — move, capture, check, castle, and game-end sounds (MP3, decoded at startup)
+- **Undo / Take-back** — Ctrl+Z; pops 2 plies in Human vs Computer, 1 in Human vs Human
+- **Persistent preferences** — theme, board style, sound, highlights, coordinates, difficulty all saved via the JDK `Preferences` API
+
+---
 
 ## Requirements
 
@@ -33,127 +59,158 @@ A fully-featured chess game written in Java with a Swing GUI and a built-in AI o
 |---------------------------|-------------|
 | Java                      | 17 or later |
 | Gradle (wrapper included) | 9.x         |
+| Stockfish binary          | Any recent  |
 | Google Guava              | 33.0.0-jre  |
 | imgscalr                  | 4.2         |
+| JLayer (MP3)              | 1.0.1       |
 | JUnit Jupiter (tests)     | 5.10.0      |
 
-No additional downloads are needed; the Gradle wrapper (`gradlew`) handles all dependencies automatically.
+Gradle handles all Java dependencies automatically via the wrapper. Stockfish must be installed separately (see below).
 
-## Building
+---
+
+## Installing Stockfish
+
+Stockfish is looked up in this order:
+
+1. System property `-Dstockfish.path=<path>` passed at startup
+2. Known fixed paths: `C:\stockfish\stockfish.exe`, `/usr/bin/stockfish`, `/usr/local/bin/stockfish`, `/opt/homebrew/bin/stockfish`
+3. `stockfish` found anywhere on `PATH`
+
+**Windows (winget):**
+```powershell
+winget install Stockfish.Stockfish
+```
+
+**macOS (Homebrew):**
+```bash
+brew install stockfish
+```
+
+**Linux (apt):**
+```bash
+sudo apt install stockfish
+```
+
+---
+
+## Building & Running
 
 ```bash
-./gradlew build          # compile, run tests, produce build/classes
+# Compile and run tests
+./gradlew build
+
+# Run the application
+./gradlew run
 ```
 
 On Windows use `gradlew.bat` instead of `./gradlew`.
 
-## Running
+The entry point is [`com.chess.JavaChess`](src/main/java/com/chess/JavaChess.java).
 
-```bash
-./gradlew run
-```
-
-Or run the compiled `Main` class directly from your IDE (`src/main/java/org/example/Main.java`).
+---
 
 ## How to Play
 
-1. Launch the application — a standard chess board opens with **White (Human) vs Black (Computer)** as the default.
+1. Launch the application — a standard board opens with **White (Human) vs Black (Computer)** as the default.
 2. **Move a piece** by clicking it then clicking the destination, or by dragging it.
-3. **Cancel a selection** with a right-click.
-4. The AI will automatically respond after each human move; an orange arrow shows where it moved.
-
-### Game Setup
-
-Open **File → Game Setup…** to:
-
-- Set White and Black to **Human** or **Computer**
-- Choose a **Difficulty** preset (Easy / Medium / Hard / Master / Custom)
-
-### Preferences
-
-| Option                | Description                                           |
-|-----------------------|-------------------------------------------------------|
-| Flip Board            | Swap which side is at the bottom                      |
-| Highlight Legal Moves | Show dots on legal squares after clicking a piece     |
-| Highlight on Hover    | Show dots on legal squares when hovering over a piece |
-| Show Coordinates      | Overlay rank and file labels (a–h, 1–8) on the board  |
-| Board Theme           | Choose Classic, Green, or Blue colour scheme          |
-| Sound Effects         | Toggle move sounds on/off                             |
-
-All preferences are saved automatically and restored on next launch.
+3. **Cancel a selection** with a right-click. Right-click drag draws annotation arrows.
+4. The AI responds automatically after each human move; a gold arrow shows where it moved.
+5. Open **File → Game Setup…** (or click **Settings** in the header) to change players and difficulty.
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action         |
-|----------|----------------|
-| Ctrl+Z   | Undo last move |
+| Shortcut | Action          |
+|----------|-----------------|
+| Ctrl+Z   | Undo last move  |
+| Ctrl+S   | Save game (PGN) |
+| Ctrl+O   | Load game (PGN) |
+
+---
 
 ## Project Structure
 
 ```
-src/main/java/com/chess/engine/
-├── Alliance.java               # WHITE / BLACK alliance enum
-├── board/
-│   ├── Board.java              # Immutable board state + Builder
-│   ├── Move.java               # Move hierarchy (major, attack, castle, en passant, promotion)
-│   └── Tile.java               # Empty / Occupied tile
-├── pieces/
-│   ├── Piece.java              # Abstract base piece
-│   ├── Pawn.java
-│   ├── Knight.java
-│   ├── Bishop.java
-│   ├── Rook.java
-│   ├── Queen.java
-│   └── King.java
-├── player/
-│   ├── Player.java             # Abstract player (legal moves, check/mate/stalemate detection)
-│   ├── WhitePlayer.java
-│   ├── BlackPlayer.java
-│   ├── MoveTransition.java     # Result of attempting a move
-│   ├── MoveStatus.java         # DONE / ILLEGAL_MOVE / LEAVES_PLAYER_IN_CHECK
-│   └── ai/
-│       ├── MoveStrategy.java   # Strategy interface
-│       ├── BoardEvaluator.java # Evaluator interface
-│       ├── Minimax.java        # Minimax + alpha-beta + transposition table + killer moves + quiescence
-│       └── StandardBoardEvaluator.java  # Material + PST (with endgame king table) + mobility scoring
-├── gui/
-│   ├── Table.java              # Main window, board rendering, mouse handling, AI dispatch
-│   ├── GameSetup.java          # Player-type / difficulty dialog
-│   ├── GameHistoryPanel.java   # Move history sidebar
-│   ├── TakenPiecesPanel.java   # Captured pieces sidebar
-│   └── SoundManager.java      # Runtime PCM sound synthesis
-└── util/
-    └── BoardUtils.java         # Board constants and coordinate helpers
+src/main/java/com/chess/
+├── JavaChess.java                   # Application entry point
+└── engine/
+    ├── Alliance.java                # WHITE / BLACK enum with direction helpers
+    ├── PlayerType.java              # HUMAN / COMPUTER enum
+    ├── board/
+    │   ├── Board.java               # Immutable board state + Builder (Piece[64])
+    │   ├── Move.java                # Move hierarchy (major, attack, castle, en passant, promotion)
+    │   ├── MoveLog.java             # Ordered list of played moves
+    │   └── Tile.java                # Empty / Occupied tile
+    ├── pieces/
+    │   ├── Piece.java               # Abstract base (shared sliding-ray generator)
+    │   ├── Pawn.java
+    │   ├── Knight.java
+    │   ├── Bishop.java
+    │   ├── Rook.java
+    │   ├── Queen.java
+    │   └── King.java
+    ├── player/
+    │   ├── Player.java              # Legal moves, check/mate/stale detection, attack maps
+    │   ├── WhitePlayer.java
+    │   ├── BlackPlayer.java
+    │   ├── MoveTransition.java      # Result of attempting a move
+    │   ├── MoveStatus.java          # DONE / ILLEGAL_MOVE / LEAVE_PLAYER_IN_CHECK
+    │   └── ai/
+    │       ├── MoveStrategy.java    # Strategy interface
+    │       ├── BoardEvaluator.java  # Evaluator interface
+    │       └── StockfishEngine.java # UCI bridge to local Stockfish process
+    ├── gui/
+    │   ├── Table.java               # Main window, event dispatch, AI worker, game state
+    │   ├── TableContext.java        # Read-only rendering state interface
+    │   ├── BoardPanel.java          # 8×8 tile grid, drag ghost, animations, arrows
+    │   ├── BoardContainer.java      # Board wrapper with coordinate labels
+    │   ├── TilePanel.java           # Single square — colors, piece icon, dots, overlays
+    │   ├── GameSetup.java           # Player-type / difficulty / clock dialog
+    │   ├── GameHistoryPanel.java    # Move history + playback controls + toggles
+    │   ├── ClockPanel.java          # Per-player countdown clock cards (ms precision)
+    │   ├── TakenPiecesPanel.java    # Captured pieces strip
+    │   ├── LeftSidebar.java         # Navigation sidebar (Play / Analysis / Learn / Settings)
+    │   ├── HeaderBar.java           # Top header with tab pills and theme toggle
+    │   ├── BoardEditorDialog.java   # Drag-and-drop position editor
+    │   ├── BoardTheme.java          # Wood / Classic / Green / Blue colour sets
+    │   ├── BoardDirection.java      # NORMAL / FLIPPED board orientation
+    │   ├── UITheme.java             # Light/dark palette + theme-change listener bus
+    │   ├── SoundManager.java        # MP3→PCM decoder, async single-thread playback
+    │   ├── PgnUtils.java            # PGN save/load helpers
+    │   ├── ChessIcons.java          # SVG-style programmatic icon factory
+    │   └── ToggleSwitch.java        # Animated toggle switch component
+    └── util/
+        └── BoardUtils.java          # 64-square constants, column/rank helpers, algebraic notation
 ```
+
+---
 
 ## AI — How It Works
 
-The computer uses **Minimax search with alpha-beta pruning** ([
-`Minimax.java`](src/main/java/com/chess/engine/player/ai/Minimax.java)).
+The computer uses a local **Stockfish** process connected over the **UCI protocol**
+([`StockfishEngine.java`](src/main/java/com/chess/engine/player/ai/StockfishEngine.java)).
 
-Additional optimisations:
-
-- **Transposition table** — Zobrist-hashed cache with EXACT / LOWER_BOUND / UPPER_BOUND flags
-- **Killer move heuristic** — 2 killer slots per ply
-- **Quiescence search** — captures-only extension up to 4 plies with stand-pat pruning
-- **MVV-LVA move ordering** — most-valuable-victim / least-valuable-attacker capture ordering
-
-Each board position is scored by [
-`StandardBoardEvaluator`](src/main/java/com/chess/engine/player/ai/StandardBoardEvaluator.java) as:
-
+Each move is requested as:
 ```
-score = Σ White(material + PST bonus + mobility + check + checkmate + castling)
-      − Σ Black(same terms)
+position fen <fen>
+go movetime <ms>
 ```
 
-| Term                | Description                                                                                            |
-|---------------------|--------------------------------------------------------------------------------------------------------|
-| Material            | Piece values in centipawns (Pawn=100, Knight/Bishop=300, Rook=500, Queen=800, King=10000)              |
-| Piece-Square Tables | Standard positional bonus tables; king uses endgame centralisation table when total material < 1300 cp |
-| Mobility            | Number of legal moves available                                                                        |
-| Check bonus         | +45 cp for putting the opponent in check                                                               |
-| Checkmate bonus     | +10 000 × depth for checkmating the opponent                                                           |
-| Castling bonus      | +60 cp for having castled                                                                              |
+Stockfish responds with a `bestmove` line which is translated back to the game's `Move` object.
+
+### Difficulty presets
+
+| Preset  | Think time |
+|---------|-----------|
+| Easy    | 100 ms    |
+| Medium  | 500 ms    |
+| Hard    | 2 000 ms  |
+| Master  | 5 000 ms  |
+| Custom  | User-set  |
+
+The engine process is started once per game session and reused across moves, so UCI initialisation only happens once. It is cleanly shut down (`quit`) when the window is closed or the game is reset.
+
+---
 
 ## License
 
