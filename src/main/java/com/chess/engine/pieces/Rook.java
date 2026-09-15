@@ -26,8 +26,8 @@ public final class Rook extends Piece {
     }
 
     private static boolean isColumnExclusion(final int position, final int offset) {
-        return (BoardUtils.FIRST_COLUMN[position] && (offset == -1))
-                || (BoardUtils.EIGHTH_COLUMN[position] && (offset == 1));
+        return (BoardUtils.isFirstColumn(position) && (offset == -1))
+                || (BoardUtils.isEighthColumn(position) && (offset == 1));
     }
 
     @Override

@@ -267,6 +267,19 @@ class PerftTest {
         );
     }
 
+    @Test
+    void pos4_depth5() {
+        // D4: nodes=15833292
+        // https://www.chessprogramming.org/Perft_Results#Position_4
+        final PerftResult r = detail(Board.fromFEN(POS4), 5);
+        assertAll("pos4 depth 4",
+                () -> assertEquals(15833292, r.nodes(), "nodes"));
+    }
+
+    private static int getDepth() {
+        return 4;
+    }
+
     // ── Position 5: Complex middlegame with promotions ────────────────────────
     // FEN: rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ -
     // https://www.chessprogramming.org/Perft_Results#Position_5

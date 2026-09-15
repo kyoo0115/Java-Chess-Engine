@@ -407,6 +407,7 @@ public abstract class Move {
 
             builder.setPiece(this.movedPiece.movePiece(this));
             builder.setPiece(new Rook(this.castleRook.getPieceAlliance(), this.castleRookDestination, false));
+            builder.castledAlliance = this.board.getCurrentPlayer().getAlliance();
             builder.setMoveMaker(this.board.getCurrentPlayer().getOpponent().getAlliance());
             return builder.build();
 

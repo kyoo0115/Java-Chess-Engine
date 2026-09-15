@@ -48,14 +48,9 @@ public class TakenPiecesPanel extends JPanel {
     private static int calcMaterial(final List<Piece> pieces) {
         int total = 0;
         for (final Piece p : pieces) {
-            total += switch (p.getPieceType()) {
-                case PAWN -> 1;
-                case KNIGHT -> 3;
-                case BISHOP -> 3;
-                case ROOK -> 5;
-                case QUEEN -> 9;
-                default -> 0;
-            };
+            final int v = p.getPieceType().getPieceValue();
+            // King is not a capturable piece; skip it
+            if (!p.getPieceType().isKing()) total += v;
         }
         return total;
     }

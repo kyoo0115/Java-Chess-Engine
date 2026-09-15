@@ -34,8 +34,10 @@ public class Board {
         final Collection<Move> whiteStandardLegalMoves = calculateLegalMoves(this.whitePieces);
         final Collection<Move> blackStandardLegalMoves = calculateLegalMoves(this.blackPieces);
 
-        this.whitePlayer = new WhitePlayer(this, whiteStandardLegalMoves, blackStandardLegalMoves);
-        this.blackPlayer = new BlackPlayer(this, whiteStandardLegalMoves, blackStandardLegalMoves);
+        this.whitePlayer = new WhitePlayer(this, whiteStandardLegalMoves, blackStandardLegalMoves,
+                builder.castledAlliance == Alliance.WHITE);
+        this.blackPlayer = new BlackPlayer(this, whiteStandardLegalMoves, blackStandardLegalMoves,
+                builder.castledAlliance == Alliance.BLACK);
         this.currentPlayer = builder.nextMoveMaker.choosePlayer(this.whitePlayer, this.blackPlayer);
     }
 
@@ -220,20 +222,20 @@ public class Board {
         sb.append(currentPlayer.getAlliance().isWhite() ? 'w' : 'b');
         sb.append(' ');
         // Castling rights
-        String castling = "";
+        StringBuilder castling = new StringBuilder();
         if (whitePlayer.getPlayerKing().isFirstMove() && whitePlayer.getPlayerKing().getPiecePosition() == 60) {
             for (Piece p : whitePieces)
-                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 63) castling += "K";
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 63) castling.append("K");
             for (Piece p : whitePieces)
-                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 56) castling += "Q";
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 56) castling.append("Q");
         }
         if (blackPlayer.getPlayerKing().isFirstMove() && blackPlayer.getPlayerKing().getPiecePosition() == 4) {
             for (Piece p : blackPieces)
-                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 7) castling += "k";
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 7) castling.append("k");
             for (Piece p : blackPieces)
-                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 0) castling += "q";
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 0) castling.append("q");
         }
-        sb.append(castling.isEmpty() ? "-" : castling);
+        sb.append((castling.isEmpty()) ? "-" : castling.toString());
         sb.append(' ');
         // En passant — the target square is one step *behind* the pawn that just jumped:
         // White pawn jumped forward (decreasing tile index), so ep square = pos + 8 (one rank back).
@@ -325,6 +327,7 @@ public class Board {
         private final Map<Integer, Piece> boardConfig;
         Pawn enPassantPawn;
         private Alliance nextMoveMaker;
+        Alliance castledAlliance; // set by CastleMove.execute() to mark which side just castled
 
         public Builder() {
             this.boardConfig = new HashMap<>();

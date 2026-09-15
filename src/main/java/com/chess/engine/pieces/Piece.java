@@ -77,11 +77,11 @@ public abstract class Piece {
         KNIGHT("N", false, false, 3),
         BISHOP("B", false, false, 3),
         ROOK("R", false, true, 5),
-        QUEEN("Q", false, false, 8),
+        QUEEN("Q", false, false, 9),
         KING("K", true, false, 100);
 
-        public final boolean isKing;
-        public final boolean isRook;
+        private final boolean isKing;
+        private final boolean isRook;
         private final String symbol;
         private final int pieceValue;
 

@@ -1,13 +1,14 @@
 package com.chess.engine.board;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class MoveLog {
     private final List<Move> moves = new ArrayList<>();
 
     public List<Move> getMoves() {
-        return moves;
+        return Collections.unmodifiableList(moves);
     }
 
     public void addMove(Move m) {

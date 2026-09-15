@@ -52,8 +52,8 @@ public final class Pawn extends Piece {
 
             /* ==================== Two Tiles Move on First Move ==================== */
             if (candidateOffset == MOVE_TWO_TILES && this.isFirstMove()
-                    && ((BoardUtils.SEVENTH_RANK[this.piecePosition] && this.pieceAlliance.isBlack())
-                    || (BoardUtils.SECOND_RANK[this.piecePosition] && this.pieceAlliance.isWhite()))) {
+                    && ((BoardUtils.isSeventhRank(this.piecePosition) && this.pieceAlliance.isBlack())
+                    || (BoardUtils.isSecondRank(this.piecePosition) && this.pieceAlliance.isWhite()))) {
 
                 final int behindCoordinate = this.piecePosition + (this.pieceAlliance.getDirection() * MOVE_ONE_TILE);
 
@@ -121,13 +121,13 @@ public final class Pawn extends Piece {
 
     /* ==================== Column Exclusions ==================== */
     private boolean isLeftColumnExclusion(final Alliance alliance) {
-        return (BoardUtils.EIGHTH_COLUMN[this.piecePosition] && alliance.isWhite())
-                || (BoardUtils.FIRST_COLUMN[this.piecePosition] && alliance.isBlack());
+        return (BoardUtils.isEighthColumn(this.piecePosition) && alliance.isWhite())
+                || (BoardUtils.isFirstColumn(this.piecePosition) && alliance.isBlack());
     }
 
     private boolean isRightColumnExclusion(final Alliance alliance) {
-        return (BoardUtils.FIRST_COLUMN[this.piecePosition] && alliance.isWhite())
-                || (BoardUtils.EIGHTH_COLUMN[this.piecePosition] && alliance.isBlack());
+        return (BoardUtils.isFirstColumn(this.piecePosition) && alliance.isWhite())
+                || (BoardUtils.isEighthColumn(this.piecePosition) && alliance.isBlack());
     }
 
     @Override

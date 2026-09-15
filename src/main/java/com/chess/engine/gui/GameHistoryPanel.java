@@ -143,10 +143,9 @@ public class GameHistoryPanel extends JPanel {
         UITheme.addThemeListener(this::repaint);
     }
 
-    private static String checkSuffix(final Board board, final List<Move> moves, final int idx) {
-        if (idx != moves.size() - 1) return "";
-        if (board.getCurrentPlayer().isCheckMate()) return "#";
-        if (board.getCurrentPlayer().isInCheck()) return "+";
+    private static String checkSuffix(final Board boardAfterMove) {
+        if (boardAfterMove.getCurrentPlayer().isCheckMate()) return "#";
+        if (boardAfterMove.getCurrentPlayer().isInCheck()) return "+";
         return "";
     }
 
@@ -237,9 +236,40 @@ public class GameHistoryPanel extends JPanel {
         MoveRow current = null;
         int moveNum = 1;
 
+        // Walk forward through the move list, re-executing each move so we have
+        // the board state after that move and can compute the correct check/# suffix.
+        // We need the board *before* the first move — replay from the start
+        // by walking the moves forward. However, `board` here is the *current*
+        // (final) board. We can't easily walk backwards, so we re-build the
+        // intermediate boards by replaying from a fresh start board.
+        // We track boards[i] = state *after* moves[0..i].
+        final Board[] boardsAfter = new Board[moves.size()];
+        Board replay = com.chess.engine.board.Board.createStandardBoard();
+        for (int i = 0; i < moves.size(); i++) {
+            final Move m = moves.get(i);
+            // Find the matching legal move on the replay board (needed because
+            // the move object references the original board, not the replay board)
+            Move matched = null;
+            for (final Move legal : replay.getCurrentPlayer().getLegalMoves()) {
+                if (legal.getCurrentCoordinate() == m.getCurrentCoordinate()
+                        && legal.getDestinationCoordinate() == m.getDestinationCoordinate()) {
+                    matched = legal;
+                    break;
+                }
+            }
+            if (matched == null) {
+                // Fallback: just carry forward (shouldn't happen for a valid log)
+                boardsAfter[i] = replay;
+            } else {
+                final com.chess.engine.player.MoveTransition t = replay.getCurrentPlayer().makeMove(matched);
+                replay = t.getMoveStatus().isDone() ? t.getTransitionBoard() : replay;
+                boardsAfter[i] = replay;
+            }
+        }
+
         for (int i = 0; i < moves.size(); i++) {
             final Move move = moves.get(i);
-            final String notation = move.toString() + checkSuffix(board, moves, i);
+            final String notation = move.toString() + checkSuffix(boardsAfter[i]);
 
             if (move.getMovedPiece().getPieceAlliance().isWhite()) {
                 current = new MoveRow(moveNum++);

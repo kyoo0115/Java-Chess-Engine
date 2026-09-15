@@ -54,8 +54,8 @@ class TilePanel extends JPanel {
     }
 
     private boolean isLightTile() {
-        if (BoardUtils.EIGHTH_RANK[tileId] || BoardUtils.SIXTH_RANK[tileId]
-                || BoardUtils.FOURTH_RANK[tileId] || BoardUtils.SECOND_RANK[tileId])
+        if (BoardUtils.isEighthRank(tileId) || BoardUtils.isSixthRank(tileId)
+                || BoardUtils.isFourthRank(tileId) || BoardUtils.isSecondRank(tileId))
             return tileId % 2 == 0;
         return tileId % 2 != 0;
     }

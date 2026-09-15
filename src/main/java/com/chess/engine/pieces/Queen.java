@@ -26,8 +26,8 @@ public final class Queen extends Piece {
     }
 
     private static boolean isColumnExclusion(final int position, final int offset) {
-        return (BoardUtils.FIRST_COLUMN[position] && (offset == -9 || offset == -1 || offset == 7))
-                || (BoardUtils.EIGHTH_COLUMN[position] && (offset == -7 || offset == 1 || offset == 9));
+        return (BoardUtils.isFirstColumn(position) && (offset == -9 || offset == -1 || offset == 7))
+                || (BoardUtils.isEighthColumn(position) && (offset == -7 || offset == 1 || offset == 9));
     }
 
     @Override

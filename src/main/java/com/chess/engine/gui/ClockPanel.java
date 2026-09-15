@@ -37,14 +37,14 @@ public class ClockPanel extends JPanel {
 
         // Black Card components
         blackNameLabel = makeNameLabel("Black");
-        blackDot = makeStatusDot(false);
+        blackDot = makeStatusDot();
         blackTimeLabel = makeTimeLabel();
         blackTakenPanel = new TakenPiecesPanel(false);
         blackCard = makePlayerCard(false, blackNameLabel, blackDot, blackTimeLabel, blackTakenPanel);
 
         // White Card components
         whiteNameLabel = makeNameLabel("White");
-        whiteDot = makeStatusDot(true);
+        whiteDot = makeStatusDot();
         whiteTimeLabel = makeTimeLabel();
         whiteTakenPanel = new TakenPiecesPanel(true);
         whiteCard = makePlayerCard(true, whiteNameLabel, whiteDot, whiteTimeLabel, whiteTakenPanel);
@@ -71,7 +71,7 @@ public class ClockPanel extends JPanel {
         return l;
     }
 
-    private JLabel makeStatusDot(boolean initialActive) {
+    private JLabel makeStatusDot() {
         return new JLabel() {
             @Override
             protected void paintComponent(Graphics g) {

@@ -17,13 +17,15 @@ public abstract class Player {
     protected final King playerKing;
     protected final Collection<Move> legalMoves;
     private final boolean inCheck;
+    private final boolean castled;
 
     protected Player(Board board, Collection<Move> legalMoves, Collection<Move> opponentMoves,
-                     Alliance opponentAlliance) {
+                     Alliance opponentAlliance, boolean castled) {
         this.board = board;
         this.playerKing = findKing();
         this.inCheck = isSquareAttackedBy(board, playerKing.getPiecePosition(), opponentAlliance);
         this.legalMoves = ImmutableList.copyOf(Iterables.concat(legalMoves, calculateKingCastles(legalMoves, opponentMoves)));
+        this.castled = castled;
     }
 
     /**
@@ -93,28 +95,28 @@ public abstract class Player {
      * Pawn left-column exclusion: piece on file A (black) or file H (white) can't attack left
      */
     private static boolean isLeftColumnExclusion(final Alliance alliance, final int pos) {
-        return (BoardUtils.EIGHTH_COLUMN[pos] && alliance.isWhite())
-                || (BoardUtils.FIRST_COLUMN[pos] && alliance.isBlack());
+        return (BoardUtils.isEighthColumn(pos) && alliance.isWhite())
+                || (BoardUtils.isFirstColumn(pos) && alliance.isBlack());
     }
 
     /**
      * Pawn right-column exclusion: piece on file A (white) or file H (black) can't attack right
      */
     private static boolean isRightColumnExclusion(final Alliance alliance, final int pos) {
-        return (BoardUtils.FIRST_COLUMN[pos] && alliance.isWhite())
-                || (BoardUtils.EIGHTH_COLUMN[pos] && alliance.isBlack());
+        return (BoardUtils.isFirstColumn(pos) && alliance.isWhite())
+                || (BoardUtils.isEighthColumn(pos) && alliance.isBlack());
     }
 
     private static boolean isKnightColumnExclusion(final int pos, final int offset) {
-        return (BoardUtils.FIRST_COLUMN[pos] && (offset == -17 || offset == -10 || offset == 6 || offset == 15))
-                || (BoardUtils.SECOND_COLUMN[pos] && (offset == -10 || offset == 6))
-                || (BoardUtils.SEVENTH_COLUMN[pos] && (offset == -6 || offset == 10))
-                || (BoardUtils.EIGHTH_COLUMN[pos] && (offset == -15 || offset == -6 || offset == 10 || offset == 17));
+        return (BoardUtils.isFirstColumn(pos) && (offset == -17 || offset == -10 || offset == 6 || offset == 15))
+                || (BoardUtils.isSecondColumn(pos) && (offset == -10 || offset == 6))
+                || (BoardUtils.isSeventhColumn(pos) && (offset == -6 || offset == 10))
+                || (BoardUtils.isEighthColumn(pos) && (offset == -15 || offset == -6 || offset == 10 || offset == 17));
     }
 
     private static boolean isKingColumnExclusion(final int pos, final int offset) {
-        return (BoardUtils.FIRST_COLUMN[pos] && (offset == -9 || offset == -1 || offset == 7))
-                || (BoardUtils.EIGHTH_COLUMN[pos] && (offset == -7 || offset == 1 || offset == 9));
+        return (BoardUtils.isFirstColumn(pos) && (offset == -9 || offset == -1 || offset == 7))
+                || (BoardUtils.isEighthColumn(pos) && (offset == -7 || offset == 1 || offset == 9));
     }
 
     /**
@@ -124,8 +126,8 @@ public abstract class Player {
         for (final int dir : new int[]{-9, -7, 7, 9}) {
             int sq = from;
             while (true) {
-                if (BoardUtils.FIRST_COLUMN[sq] && (dir == -9 || dir == 7)) break;
-                if (BoardUtils.EIGHTH_COLUMN[sq] && (dir == -7 || dir == 9)) break;
+                if (BoardUtils.isFirstColumn(sq) && (dir == -9 || dir == 7)) break;
+                if (BoardUtils.isEighthColumn(sq) && (dir == -7 || dir == 9)) break;
                 sq += dir;
                 if (!BoardUtils.isValidTileCoordinate(sq)) break;
                 if (sq == target) return true;
@@ -143,8 +145,8 @@ public abstract class Player {
         for (final int dir : new int[]{-1, 1}) {
             int sq = from;
             while (true) {
-                if (dir == -1 && BoardUtils.FIRST_COLUMN[sq]) break;
-                if (dir == 1 && BoardUtils.EIGHTH_COLUMN[sq]) break;
+                if (dir == -1 && BoardUtils.isFirstColumn(sq)) break;
+                if (dir == 1 && BoardUtils.isEighthColumn(sq)) break;
                 sq += dir;
                 if (!BoardUtils.isValidTileCoordinate(sq)) break;
                 if (sq == target) return true;
@@ -197,7 +199,7 @@ public abstract class Player {
     }
 
     public boolean isCastled() {
-        return false;
+        return castled;
     }
 
     protected boolean hasEscapeMoves() {

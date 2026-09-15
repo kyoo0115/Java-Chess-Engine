@@ -35,22 +35,22 @@ public final class Knight extends Piece {
     }
 
     private static boolean isFirstColumnExclusion(final int position, final int offset) {
-        return BoardUtils.FIRST_COLUMN[position]
+        return BoardUtils.isFirstColumn(position)
                 && (offset == -17 || offset == -10 || offset == 6 || offset == 15);
     }
 
     private static boolean isSecondColumnExclusion(final int position, final int offset) {
-        return BoardUtils.SECOND_COLUMN[position]
+        return BoardUtils.isSecondColumn(position)
                 && (offset == -10 || offset == 6);
     }
 
     private static boolean isSeventhColumnExclusion(final int position, final int offset) {
-        return BoardUtils.SEVENTH_COLUMN[position]
+        return BoardUtils.isSeventhColumn(position)
                 && (offset == -6 || offset == 10);
     }
 
     private static boolean isEighthColumnExclusion(final int position, final int offset) {
-        return BoardUtils.EIGHTH_COLUMN[position]
+        return BoardUtils.isEighthColumn(position)
                 && (offset == -15 || offset == -6 || offset == 10 || offset == 17);
     }
 
