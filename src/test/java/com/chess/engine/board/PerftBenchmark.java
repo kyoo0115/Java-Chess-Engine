@@ -57,11 +57,11 @@ class PerftBenchmark {
                 + "  OS: " + System.getProperty("os.name"));
         System.out.println();
 
-        bench("StartPos",          START,    4);
-        bench("StartPos",          START,    5);
-        bench("Kiwipete",          KIWIPETE, 3);
-        bench("Kiwipete",          KIWIPETE, 4);
-        bench("Pos5 (promotions)", POS5,     4);
+        bench("StartPos", START, 4);
+        bench("StartPos", START, 5);
+        bench("Kiwipete", KIWIPETE, 3);
+        bench("Kiwipete", KIWIPETE, 4);
+        bench("Pos5 (promotions)", POS5, 4);
 
         System.out.println();
     }

@@ -44,6 +44,10 @@ class PerftTest {
     private static final String POS5 =
             "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ -";
 
+    private static int getDepth() {
+        return 4;
+    }
+
     private long perft(final Board board, final int depth) {
         if (depth == 0) return 1L;
         long nodes = 0;
@@ -92,11 +96,6 @@ class PerftTest {
         assertEquals(20, perft(Board.createStandardBoard(), 1));
     }
 
-    @Test
-    void startPos_depth2() {
-        assertEquals(400, perft(Board.createStandardBoard(), 2));
-    }
-
     // ── Position 2: Kiwipete ─────────────────────────────────────────────────
     // FEN: r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -
     // https://www.chessprogramming.org/Perft_Results#Position_2
@@ -104,6 +103,11 @@ class PerftTest {
     // D2:  nodes=2039,     captures=351,   ep=1,  castles=91,promos=0,  checks=3
     // D3:  nodes=97862,    captures=17102, ep=45, castles=3162,promos=0,checks=993
     // D4:  nodes=4085603,  captures=757163,ep=1929,castles=128013,promos=15172,checks=25523
+
+    @Test
+    void startPos_depth2() {
+        assertEquals(400, perft(Board.createStandardBoard(), 2));
+    }
 
     @Test
     void startPos_depth3() {
@@ -157,6 +161,12 @@ class PerftTest {
         );
     }
 
+    // ── Position 3: Endgame with promotions ──────────────────────────────────
+    // FEN: 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -
+    // https://www.chessprogramming.org/Perft_Results#Position_3
+    // D3:  nodes=2812,  captures=209,  ep=2,  castles=0, promos=0, checks=267
+    // D4:  nodes=43238, captures=3348, ep=123,castles=0, promos=0,  checks=1680
+
     @Test
     void kiwipete_depth2() {
         final PerftResult r = detail(Board.fromFEN(KIWIPETE), 2);
@@ -169,12 +179,6 @@ class PerftTest {
                 () -> assertEquals(3, r.checks(), "checks")
         );
     }
-
-    // ── Position 3: Endgame with promotions ──────────────────────────────────
-    // FEN: 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -
-    // https://www.chessprogramming.org/Perft_Results#Position_3
-    // D3:  nodes=2812,  captures=209,  ep=2,  castles=0, promos=0, checks=267
-    // D4:  nodes=43238, captures=3348, ep=123,castles=0, promos=0,  checks=1680
 
     @Test
     void kiwipete_depth3() {
@@ -212,6 +216,9 @@ class PerftTest {
         assertEquals(191, perft(Board.fromFEN(POS3), 2));
     }
 
+    // ── Position 4: (White already castled, only Black can castle) ───────────
+    // https://www.chessprogramming.org/Perft_Results#Position_4
+
     @Test
     void pos3_depth3() {
         final PerftResult r = detail(Board.fromFEN(POS3), 3);
@@ -224,9 +231,6 @@ class PerftTest {
                 () -> assertEquals(267, r.checks(), "checks")
         );
     }
-
-    // ── Position 4: (White already castled, only Black can castle) ───────────
-    // https://www.chessprogramming.org/Perft_Results#Position_4
 
     @Test
     void pos3_depth4() {
@@ -274,10 +278,6 @@ class PerftTest {
         final PerftResult r = detail(Board.fromFEN(POS4), 5);
         assertAll("pos4 depth 5",
                 () -> assertEquals(15833292, r.nodes(), "nodes"));
-    }
-
-    private static int getDepth() {
-        return 4;
     }
 
     // ── Position 5: Complex middlegame with promotions ────────────────────────

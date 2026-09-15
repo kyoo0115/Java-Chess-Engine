@@ -68,12 +68,17 @@ public class BoardPanel extends JPanel {
     }
 
     public void drawBoard(final Board board) {
-        removeAll();
-        for (final TilePanel tp : ctx.getBoardDirection().traverse(boardTiles)) {
+        final List<TilePanel> ordered = ctx.getBoardDirection().traverse(boardTiles);
+        for (int i = 0; i < ordered.size(); i++) {
+            final Component c = getComponent(i);
+            final TilePanel tp = ordered.get(i);
+            if (c != tp) {
+                // Swap only when order actually changed (flip/unflip)
+                remove(tp);
+                add(tp, i);
+            }
             tp.drawTile(board);
-            add(tp);
         }
-        validate();
         repaint();
     }
 
@@ -96,6 +101,8 @@ public class BoardPanel extends JPanel {
 
     private void installMouseListener() {
         final MouseAdapter adapter = new MouseAdapter() {
+            private int lastHoverTileId = -1;
+
             @Override
             public void mousePressed(MouseEvent e) {
                 if (isRightMouseButton(e)) {
@@ -128,9 +135,15 @@ public class BoardPanel extends JPanel {
 
             @Override
             public void mouseMoved(MouseEvent e) {
-                onHover.accept(tileIdAtPoint(e.getPoint()));
-                for (final TilePanel tp : boardTiles) tp.refreshDots(ctx.getChessBoard());
-                repaint();
+                final int tileId = tileIdAtPoint(e.getPoint());
+                onHover.accept(tileId);
+                // Only refresh dots when the hovered tile actually changes —
+                // mouseMoved fires for every pixel of movement.
+                if (tileId != lastHoverTileId) {
+                    lastHoverTileId = tileId;
+                    for (final TilePanel tp : boardTiles) tp.refreshDots(ctx.getChessBoard());
+                    repaint();
+                }
             }
         };
         addMouseListener(adapter);

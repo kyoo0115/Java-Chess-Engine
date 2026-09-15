@@ -22,14 +22,20 @@ public class ClockPanel extends JPanel {
     private final Runnable onBlackTimeout;
     private final Timer ticker;
 
-    /** Remaining time in milliseconds for each player. */
+    /**
+     * Remaining time in milliseconds for each player.
+     */
     private long whiteMs = 600_000;
     private long blackMs = 600_000;
     private boolean whiteActive = false;
     private boolean enabled = true;
-    /** Wall-clock time (ms) at which the current player's turn started, or -1 if not running. */
+    /**
+     * Wall-clock time (ms) at which the current player's turn started, or -1 if not running.
+     */
     private long turnStartMs = -1;
-    /** Milliseconds remaining for the active player at the moment their turn started. */
+    /**
+     * Milliseconds remaining for the active player at the moment their turn started.
+     */
     private long activeMsAtTurnStart = 0;
 
     public ClockPanel(final Runnable onWhiteTimeout, final Runnable onBlackTimeout) {
@@ -238,7 +244,9 @@ public class ClockPanel extends JPanel {
         return ticker.isRunning();
     }
 
-    /** Saves elapsed wall-clock time back into the active player's counter. */
+    /**
+     * Saves elapsed wall-clock time back into the active player's counter.
+     */
     private void commitElapsed() {
         if (turnStartMs < 0) return;
         final long elapsed = System.currentTimeMillis() - turnStartMs;

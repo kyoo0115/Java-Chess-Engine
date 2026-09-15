@@ -9,7 +9,9 @@ import com.chess.engine.util.BoardUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.regex.Pattern;
 
 public class Board {
@@ -325,8 +327,8 @@ public class Board {
         // Avoids Integer boxing and HashMap hashing on every setPiece/get call.
         final Piece[] boardConfig = new Piece[BoardUtils.NUM_TILES];
         Pawn enPassantPawn;
-        private Alliance nextMoveMaker;
         Alliance castledAlliance; // set by CastleMove.execute() to mark which side just castled
+        private Alliance nextMoveMaker;
 
         public Builder setPiece(final Piece piece) {
             this.boardConfig[piece.getPiecePosition()] = piece;

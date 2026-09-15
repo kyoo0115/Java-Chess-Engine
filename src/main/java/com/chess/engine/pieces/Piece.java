@@ -22,6 +22,43 @@ public abstract class Piece {
         this.cachedHashCode = computeHashCode();
     }
 
+    /**
+     * Shared sliding-ray generator used by Bishop, Rook, and Queen.
+     * Walks from {@code startPosition} in each direction in {@code offsets},
+     * stopping at board edges (via {@code columnExcluder}) or occupied squares.
+     * Appends quiet moves and a single capture per ray to {@code legalMoves}.
+     *
+     * @param board          the current board
+     * @param piece          the sliding piece that is moving
+     * @param startPosition  the piece's current square index
+     * @param offsets        ray directions (e.g. {-9,-7,7,9} for diagonals)
+     * @param columnExcluder returns true when the current square + offset would wrap
+     * @param legalMoves     output list to add generated moves to
+     */
+    protected static void addSlidingMoves(final Board board, final Piece piece,
+                                          final int startPosition, final int[] offsets,
+                                          final java.util.function.BiPredicate<Integer, Integer> columnExcluder,
+                                          final List<Move> legalMoves) {
+        for (final int offset : offsets) {
+            int dest = startPosition;
+            while (true) {
+                if (columnExcluder.test(dest, offset)) break;
+                dest += offset;
+                if (!com.chess.engine.util.BoardUtils.isValidTileCoordinate(dest)) break;
+                final com.chess.engine.board.Tile tile = board.getTile(dest);
+                if (!tile.isTileOccupied()) {
+                    legalMoves.add(new Move.MajorMove(board, piece, dest));
+                } else {
+                    final Piece occupant = tile.getPiece();
+                    if (piece.getPieceAlliance() != occupant.getPieceAlliance()) {
+                        legalMoves.add(new Move.MajorAttackMove(board, piece, dest, occupant));
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     private int computeHashCode() {
         int result = pieceType.hashCode();
 
@@ -70,43 +107,6 @@ public abstract class Piece {
     public abstract List<Move> calculateLegalMoves(final Board board);
 
     public abstract Piece movePiece(Move move);
-
-    /**
-     * Shared sliding-ray generator used by Bishop, Rook, and Queen.
-     * Walks from {@code startPosition} in each direction in {@code offsets},
-     * stopping at board edges (via {@code columnExcluder}) or occupied squares.
-     * Appends quiet moves and a single capture per ray to {@code legalMoves}.
-     *
-     * @param board            the current board
-     * @param piece            the sliding piece that is moving
-     * @param startPosition    the piece's current square index
-     * @param offsets          ray directions (e.g. {-9,-7,7,9} for diagonals)
-     * @param columnExcluder   returns true when the current square + offset would wrap
-     * @param legalMoves       output list to add generated moves to
-     */
-    protected static void addSlidingMoves(final Board board, final Piece piece,
-                                          final int startPosition, final int[] offsets,
-                                          final java.util.function.BiPredicate<Integer, Integer> columnExcluder,
-                                          final List<Move> legalMoves) {
-        for (final int offset : offsets) {
-            int dest = startPosition;
-            while (true) {
-                if (columnExcluder.test(dest, offset)) break;
-                dest += offset;
-                if (!com.chess.engine.util.BoardUtils.isValidTileCoordinate(dest)) break;
-                final com.chess.engine.board.Tile tile = board.getTile(dest);
-                if (!tile.isTileOccupied()) {
-                    legalMoves.add(new Move.MajorMove(board, piece, dest));
-                } else {
-                    final Piece occupant = tile.getPiece();
-                    if (piece.getPieceAlliance() != occupant.getPieceAlliance()) {
-                        legalMoves.add(new Move.MajorAttackMove(board, piece, dest, occupant));
-                    }
-                    break;
-                }
-            }
-        }
-    }
 
     public enum PieceType {
 

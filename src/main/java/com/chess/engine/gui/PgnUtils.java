@@ -20,7 +20,9 @@ public final class PgnUtils {
     private PgnUtils() {
     }
 
-    /** Derives the PGN result tag from the current board state. */
+    /**
+     * Derives the PGN result tag from the current board state.
+     */
     private static String gameResult(final Board board) {
         if (board.getCurrentPlayer().isCheckMate()) {
             // The player to move is mated — the opponent wins

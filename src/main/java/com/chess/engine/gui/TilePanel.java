@@ -21,9 +21,14 @@ class TilePanel extends JPanel {
 
     private final int tileId;
     private final TableContext ctx;
+    // Permanent label — icon is updated in-place instead of removeAll()+add() each draw.
+    private final JLabel pieceLabel = new JLabel();
     private boolean showLegalDot = false;
     private boolean isCaptureDot = false;
     private boolean showCheckOverlay = false;
+    // Cached stroke — recomputed only when tile width changes, not on every paint.
+    private int lastStrokeWidth = -1;
+    private BasicStroke cachedStroke;
 
     TilePanel(final int tileId, final TableContext ctx) {
         super(new GridBagLayout());
@@ -31,6 +36,7 @@ class TilePanel extends JPanel {
         this.ctx = ctx;
         setPreferredSize(TILE_PANEL_DIMENSION);
         setOpaque(true);
+        add(pieceLabel);
     }
 
     void drawTile(final Board board) {
@@ -40,8 +46,6 @@ class TilePanel extends JPanel {
         highlightSelected();
         highlightCheck(board);
         highlightLegals(board);
-        validate();
-        repaint();
     }
 
     void refreshDots(final Board board) {
@@ -80,11 +84,9 @@ class TilePanel extends JPanel {
         showLegalDot = false;
         isCaptureDot = false;
 
-        // Show dots while dragging a piece (dragSourceTileId >= 0) if the toggle is on
         final boolean dragActive = ctx.isHighlightLegalMoves()
                 && ctx.getHumanMovedPiece() != null
                 && ctx.getDragSourceTileId() >= 0;
-        // Show dots on hover when hoverHighlight is on and no drag is active
         final boolean hoverActive = ctx.isHoverHighlight()
                 && ctx.getHumanMovedPiece() != null
                 && ctx.getHoverTileId() >= 0
@@ -103,23 +105,22 @@ class TilePanel extends JPanel {
         final Piece p = ctx.getHumanMovedPiece();
         if (p == null || p.getPieceAlliance() != board.getCurrentPlayer().getAlliance())
             return Collections.emptyList();
-        // Use the player's fully-filtered legal moves (check-safe, includes castling)
         return board.getCurrentPlayer().getLegalMoves().stream()
                 .filter(m -> m.getMovedPiece().equals(p))
                 .toList();
     }
 
     private void assignTilePieceIcon(final Board board) {
-        removeAll();
-        if (tileId == ctx.getDragSourceTileId()) return;
-        if (!board.getTile(tileId).isTileOccupied()) return;
-
+        if (tileId == ctx.getDragSourceTileId() || !board.getTile(tileId).isTileOccupied()) {
+            pieceLabel.setIcon(null);
+            return;
+        }
         final Piece piece = board.getTile(tileId).getPiece();
-        final String key = String.valueOf(piece.getPieceAlliance().toString().charAt(0)) + piece;
+        final String key = piece.getPieceAlliance().toString().charAt(0) + piece.toString();
         final Map<String, BufferedImage> scaled = ctx.getScaledImageCache();
         final Map<String, BufferedImage> raw = ctx.getRawImageCache();
         final BufferedImage img = scaled.getOrDefault(key, raw.get(key));
-        if (img != null) add(new JLabel(new ImageIcon(img)));
+        pieceLabel.setIcon(img != null ? new ImageIcon(img) : null);
     }
 
     @Override
@@ -141,17 +142,20 @@ class TilePanel extends JPanel {
         final int h = getHeight();
 
         if (isCaptureDot) {
-            final int stroke = Math.max(3, w / 12);
+            final int strokeWidth = Math.max(3, w / 12);
+            // Reuse cached stroke unless tile size changed
+            if (strokeWidth != lastStrokeWidth) {
+                cachedStroke = new BasicStroke(strokeWidth);
+                lastStrokeWidth = strokeWidth;
+            }
             g2.setColor(new Color(0, 0, 0, 90));
-            g2.setStroke(new BasicStroke(stroke));
-            final int inset = stroke / 2 + 1;
+            g2.setStroke(cachedStroke);
+            final int inset = strokeWidth / 2 + 1;
             g2.drawOval(inset, inset, w - inset * 2, h - inset * 2);
         } else {
             final int r = w / 8;
-            final int cx = w / 2 - r;
-            final int cy = h / 2 - r;
             g2.setColor(new Color(0, 0, 0, 80));
-            g2.fillOval(cx, cy, r * 2, r * 2);
+            g2.fillOval(w / 2 - r, h / 2 - r, r * 2, r * 2);
         }
     }
 }

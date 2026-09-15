@@ -26,7 +26,7 @@ public final class Rook extends Piece {
         final List<Move> legalMoves = new ArrayList<>();
         addSlidingMoves(board, this, this.piecePosition, ROOK_MOVE_OFFSETS,
                 (pos, off) -> (BoardUtils.isFirstColumn(pos) && off == -1)
-                           || (BoardUtils.isEighthColumn(pos) && off == 1),
+                        || (BoardUtils.isEighthColumn(pos) && off == 1),
                 legalMoves);
         return ImmutableList.copyOf(legalMoves);
     }

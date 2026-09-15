@@ -22,15 +22,15 @@ public class GameHistoryPanel extends JPanel {
     private static final Font LAST_MOVE_FONT = new Font("SansSerif", Font.BOLD, 13);
 
     private final List<MoveRow> rows = new ArrayList<>();
+    private final List<String> cachedNotations = new ArrayList<>();
     private final MoveListPanel listPanel;
     private final JScrollPane scrollPane;
-    // Toggle options
     private final ToggleSwitch legalMovesSwitch;
     private final ToggleSwitch lastMoveSwitch;
     private final ToggleSwitch flipBoardSwitch;
+    private Board lastReplayBoard = null;
     private int lastRowIdx = -1;
     private int lastHalf = -1; // 0 = white cell, 1 = black cell
-    // Controls bar callbacks
     private Runnable onFirstMove;
     private Runnable onPrevMove;
     private Runnable onPlayPause;
@@ -227,28 +227,48 @@ public class GameHistoryPanel extends JPanel {
         flipBoardSwitch.setSelected(flipped);
     }
 
-    public void redo(final Board board, final MoveLog moveLog) {
+    /**
+     * Clears all cached history state. Call on new game / load / undo / any
+     * operation that changes moves other than appending.
+     */
+    public void clearHistory() {
         rows.clear();
+        cachedNotations.clear();
+        lastReplayBoard = null;
         lastRowIdx = -1;
         lastHalf = -1;
+        listPanel.setPreferredHeight(0);
+        listPanel.revalidate();
+        listPanel.repaint();
+    }
 
+    public void redo(final Board board, final MoveLog moveLog) {
         final List<Move> moves = moveLog.getMoves();
-        MoveRow current = null;
-        int moveNum = 1;
+        final int cached = cachedNotations.size();
+        final int total = moves.size();
 
-        // Walk forward through the move list, re-executing each move so we have
-        // the board state after that move and can compute the correct check/# suffix.
-        // We need the board *before* the first move — replay from the start
-        // by walking the moves forward. However, `board` here is the *current*
-        // (final) board. We can't easily walk backwards, so we re-build the
-        // intermediate boards by replaying from a fresh start board.
-        // We track boards[i] = state *after* moves[0..i].
-        final Board[] boardsAfter = new Board[moves.size()];
-        Board replay = com.chess.engine.board.Board.createStandardBoard();
-        for (int i = 0; i < moves.size(); i++) {
+        if (total < cached) {
+            // Move log shrank (undo) — full rebuild required.
+            rows.clear();
+            cachedNotations.clear();
+            lastReplayBoard = null;
+            lastRowIdx = -1;
+            lastHalf = -1;
+        }
+
+        // ── Append only the new moves (fast path on every normal move) ──────────
+        // lastReplayBoard is the board *after* cachedNotations.size() moves.
+        // For the very first call after a reset it starts as null (no moves yet).
+        Board replay = lastReplayBoard;
+        if (replay == null) {
+            replay = com.chess.engine.board.Board.createStandardBoard();
+            // Replay any moves already in the log that we haven't cached yet
+            // (happens after a full rebuild above or on first call after clearHistory).
+        }
+
+        for (int i = cachedNotations.size(); i < total; i++) {
             final Move m = moves.get(i);
-            // Find the matching legal move on the replay board (needed because
-            // the move object references the original board, not the replay board)
+            // Re-execute on the replay board so we can compute check/# suffix.
             Move matched = null;
             for (final Move legal : replay.getCurrentPlayer().getLegalMoves()) {
                 if (legal.getCurrentCoordinate() == m.getCurrentCoordinate()
@@ -257,19 +277,23 @@ public class GameHistoryPanel extends JPanel {
                     break;
                 }
             }
-            if (matched == null) {
-                // Fallback: just carry forward (shouldn't happen for a valid log)
-                boardsAfter[i] = replay;
-            } else {
+            if (matched != null) {
                 final com.chess.engine.player.MoveTransition t = replay.getCurrentPlayer().makeMove(matched);
-                replay = t.getMoveStatus().isDone() ? t.getTransitionBoard() : replay;
-                boardsAfter[i] = replay;
+                if (t.getMoveStatus().isDone()) replay = t.getTransitionBoard();
             }
+            cachedNotations.add(m.toString() + checkSuffix(replay));
         }
+        lastReplayBoard = replay;
 
-        for (int i = 0; i < moves.size(); i++) {
+        // ── Rebuild rows from cached notations (O(n) string reads, no board work) ─
+        rows.clear();
+        lastRowIdx = -1;
+        lastHalf = -1;
+        MoveRow current = null;
+        int moveNum = 1;
+        for (int i = 0; i < cachedNotations.size(); i++) {
             final Move move = moves.get(i);
-            final String notation = move.toString() + checkSuffix(boardsAfter[i]);
+            final String notation = cachedNotations.get(i);
 
             if (move.getMovedPiece().getPieceAlliance().isWhite()) {
                 current = new MoveRow(moveNum++);

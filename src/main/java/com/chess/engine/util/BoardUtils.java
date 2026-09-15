@@ -10,12 +10,12 @@ public final class BoardUtils {
     public static final int NUM_TILES = 64;
     public static final int NUM_TILES_PER_ROW = 8;
     public static final int START_TILE_INDEX = 0;
-
+    public static final List<String> ALGEBRAIC_NOTATION = initializeAlgebraicNotation();
+    public static final Map<String, Integer> POSITION_TO_COORDINATE = initializePositionToCoordinateMap();
     private static final boolean[] FIRST_COLUMN = initColumn(0);
     private static final boolean[] SECOND_COLUMN = initColumn(1);
     private static final boolean[] SEVENTH_COLUMN = initColumn(6);
     private static final boolean[] EIGHTH_COLUMN = initColumn(7);
-
     private static final boolean[] EIGHTH_RANK = initRow(0);
     private static final boolean[] SEVENTH_RANK = initRow(8);
     private static final boolean[] SIXTH_RANK = initRow(16);
@@ -25,25 +25,57 @@ public final class BoardUtils {
     private static final boolean[] SECOND_RANK = initRow(48);
     private static final boolean[] FIRST_RANK = initRow(56);
 
-    // Package-visible accessors for column/rank membership
-    public static boolean isFirstColumn(int sq)   { return FIRST_COLUMN[sq]; }
-    public static boolean isSecondColumn(int sq)  { return SECOND_COLUMN[sq]; }
-    public static boolean isSeventhColumn(int sq) { return SEVENTH_COLUMN[sq]; }
-    public static boolean isEighthColumn(int sq)  { return EIGHTH_COLUMN[sq]; }
-    public static boolean isFirstRank(int sq)     { return FIRST_RANK[sq]; }
-    public static boolean isSecondRank(int sq)    { return SECOND_RANK[sq]; }
-    public static boolean isThirdRank(int sq)     { return THIRD_RANK[sq]; }
-    public static boolean isFourthRank(int sq)    { return FOURTH_RANK[sq]; }
-    public static boolean isFifthRank(int sq)     { return FIFTH_RANK[sq]; }
-    public static boolean isSixthRank(int sq)     { return SIXTH_RANK[sq]; }
-    public static boolean isSeventhRank(int sq)   { return SEVENTH_RANK[sq]; }
-    public static boolean isEighthRank(int sq)    { return EIGHTH_RANK[sq]; }
-
-    public static final List<String> ALGEBRAIC_NOTATION = initializeAlgebraicNotation();
-    public static final Map<String, Integer> POSITION_TO_COORDINATE = initializePositionToCoordinateMap();
-
     private BoardUtils() {
         throw new AssertionError("Cannot instantiate utility class");
+    }
+
+    // Package-visible accessors for column/rank membership
+    public static boolean isFirstColumn(int sq) {
+        return FIRST_COLUMN[sq];
+    }
+
+    public static boolean isSecondColumn(int sq) {
+        return SECOND_COLUMN[sq];
+    }
+
+    public static boolean isSeventhColumn(int sq) {
+        return SEVENTH_COLUMN[sq];
+    }
+
+    public static boolean isEighthColumn(int sq) {
+        return EIGHTH_COLUMN[sq];
+    }
+
+    public static boolean isFirstRank(int sq) {
+        return FIRST_RANK[sq];
+    }
+
+    public static boolean isSecondRank(int sq) {
+        return SECOND_RANK[sq];
+    }
+
+    public static boolean isThirdRank(int sq) {
+        return THIRD_RANK[sq];
+    }
+
+    public static boolean isFourthRank(int sq) {
+        return FOURTH_RANK[sq];
+    }
+
+    public static boolean isFifthRank(int sq) {
+        return FIFTH_RANK[sq];
+    }
+
+    public static boolean isSixthRank(int sq) {
+        return SIXTH_RANK[sq];
+    }
+
+    public static boolean isSeventhRank(int sq) {
+        return SEVENTH_RANK[sq];
+    }
+
+    public static boolean isEighthRank(int sq) {
+        return EIGHTH_RANK[sq];
     }
 
     private static boolean[] initColumn(int columnIndex) {

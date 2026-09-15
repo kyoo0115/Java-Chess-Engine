@@ -9,7 +9,6 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
@@ -36,8 +35,10 @@ public class TakenPiecesPanel extends JPanel {
         for (final String a : new String[]{"W", "B"})
             for (final String s : new String[]{"K", "Q", "R", "B", "N", "P"}) {
                 final String key = a + s;
-                try {
-                    cache.put(key, ImageIO.read(new File("images/" + key + ".png")));
+                try (final java.io.InputStream is =
+                             TakenPiecesPanel.class.getResourceAsStream("/images/" + key + ".png")) {
+                    if (is == null) { System.err.println("TakenPiecesPanel: missing image " + key + ".png"); continue; }
+                    cache.put(key, ImageIO.read(is));
                 } catch (final IOException e) {
                     System.err.println("TakenPiecesPanel: missing image " + key + ".png");
                 }

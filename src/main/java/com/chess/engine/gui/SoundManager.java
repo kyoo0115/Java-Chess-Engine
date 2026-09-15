@@ -10,7 +10,6 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.EnumMap;
 import java.util.Map;
@@ -18,12 +17,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Plays chess sound effects from MP3 files in the sounds/ directory.
+ * Plays chess sound effects from MP3 files bundled under /sounds/ on the classpath.
  * All files are decoded to PCM once at class-load time so playback is instant.
  */
 public class SoundManager {
 
-    private static final String SOUNDS_DIR = "sounds/";
+    private static final String SOUNDS_DIR = "/sounds/";
 
     /**
      * Single-thread executor so sounds queue and never overlap destructively
@@ -47,14 +46,18 @@ public class SoundManager {
         // Decode all MP3s up front so play() has zero decode latency
         for (final SoundType type : SoundType.values()) {
             final String path = SOUNDS_DIR + fileFor(type);
-            try (FileInputStream fis = new FileInputStream(path)) {
-                final DecodedAudio da = decode(fis);
+            try (InputStream is = SoundManager.class.getResourceAsStream(path)) {
+                if (is == null) {
+                    System.err.println("SoundManager: not found on classpath: " + path);
+                    continue;
+                }
+                final DecodedAudio da = decode(is);
                 if (da != null) {
                     PCM_CACHE.put(type, da.pcm);
                     if (pcmFormat == null) pcmFormat = da.format;
                 }
             } catch (Exception e) {
-                System.err.println("SoundManager: could not load " + path);
+                System.err.println("SoundManager: could not load " + path + " — " + e.getMessage());
             }
         }
     }

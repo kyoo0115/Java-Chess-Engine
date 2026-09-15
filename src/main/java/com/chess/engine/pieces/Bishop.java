@@ -26,7 +26,7 @@ public final class Bishop extends Piece {
         final List<Move> legalMoves = new ArrayList<>();
         addSlidingMoves(board, this, this.piecePosition, BISHOP_MOVE_OFFSETS,
                 (pos, off) -> (BoardUtils.isFirstColumn(pos) && (off == -9 || off == 7))
-                           || (BoardUtils.isEighthColumn(pos) && (off == -7 || off == 9)),
+                        || (BoardUtils.isEighthColumn(pos) && (off == -7 || off == 9)),
                 legalMoves);
         return ImmutableList.copyOf(legalMoves);
     }

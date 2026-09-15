@@ -21,6 +21,7 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +40,7 @@ public class Table implements TableContext {
     private static final Map<String, BufferedImage> RAW_IMAGE_CACHE = loadRawCache();
     // ── Persistent preferences ────────────────────────────────────────
     private static final Preferences PREFS = Preferences.userNodeForPackage(Table.class);
+    private static final int RESIZE_DEBOUNCE_MS = 100;
     // ── Instance fields ───────────────────────────────────────────────
     private final JFrame gameFrame;
     private final BoardPanel boardPanel;
@@ -49,44 +51,36 @@ public class Table implements TableContext {
     private final ClockPanel clockPanel;
     private final LeftSidebar leftSidebar;
     private final HeaderBar headerBar;
-    // ── Draw detection (fifty-move rule + threefold repetition) ──────
     private final Map<String, Integer> positionHistory = new HashMap<>();
-    // ── Per-instance scaled caches (rebuilt on board resize) ──────────
     private Map<String, BufferedImage> scaledImageCache = new HashMap<>();
-    private Map<String, BufferedImage> dragImageCache = new HashMap<>();
     private int lastScaledTileSize = -1;
     private Board chessBoard;
     private BoardDirection boardDirection;
-    private BoardTheme boardTheme = BoardTheme.WOOD;
-    // Preferences flags
+    private BoardTheme boardTheme;
     private boolean highlightLegalMoves = true;
     private boolean hoverHighlight = false;
     private boolean showCoordinates = true;
     private boolean highlightLastMove = true;
     private boolean gameOver = false;
     private boolean engineVsEnginePaused = false;
-    // ── Stockfish engine instance (kept alive across moves) ──────────
     private StockfishEngine stockfishEngine = null;
     private AIThinkTank currentThinkTank = null;
     private int halfMoveClock = 0;
-    // Selection / drag state
     private Tile sourceTile;
     private Piece humanMovedPiece;
     private BufferedImage dragImage;
     private Point dragPoint;
     private int dragSourceTileId = -1;
     private int hoverTileId = -1;
-    // Last-move highlights
     private int lastMoveSource = -1;
     private int lastMoveDest = -1;
-    // Move arrow overlay
     private int arrowSource = -1;
     private int arrowDest = -1;
-    // AI piece animation
-    private BufferedImage animPiece = null;
+    private volatile BufferedImage animPiece = null;
     private float animFromX, animFromY, animToX, animToY;
-    private float animProgress = 0f;
-    private javax.swing.Timer animTimer = null;
+    private volatile float animProgress = 0f;
+    private Timer animTimer = null;
+    private Timer resizeDebounceTimer = null;
 
     public Table() {
         gameFrame = new JFrame("Chess");
@@ -113,7 +107,7 @@ public class Table implements TableContext {
         gameFrame.setMinimumSize(new Dimension(860, 680));
 
         boardPanel = new BoardPanel(this,
-                this::rebuildScaledCaches,
+                this::onBoardResized,
                 this::onMoveAttempt,
                 this::onRightClick,
                 this::onHover);
@@ -252,15 +246,25 @@ public class Table implements TableContext {
         });
     }
 
+    /**
+     * Loads piece images from the classpath (e.g. {@code /images/WK.png}) rather than
+     * from a relative filesystem path, so the app still works when packaged into a JAR
+     * and run from a different working directory.
+     */
     private static Map<String, BufferedImage> loadRawCache() {
         final Map<String, BufferedImage> cache = new HashMap<>();
         for (final String a : new String[]{"W", "B"})
             for (final String s : new String[]{"K", "Q", "R", "B", "N", "P"}) {
                 final String key = a + s;
-                try {
-                    cache.put(key, ImageIO.read(new File(PIECE_ICON_PATH + key + ".png")));
+                final String resourcePath = "/" + PIECE_ICON_PATH + key + ".png";
+                try (final InputStream in = Table.class.getResourceAsStream(resourcePath)) {
+                    if (in == null) {
+                        System.err.println("Missing piece image resource: " + resourcePath);
+                        continue;
+                    }
+                    cache.put(key, ImageIO.read(in));
                 } catch (IOException e) {
-                    System.err.println("Missing piece image: " + key + ".png");
+                    System.err.println("Failed to load piece image " + resourcePath + ": " + e.getMessage());
                 }
             }
         return Collections.unmodifiableMap(cache);
@@ -400,6 +404,21 @@ public class Table implements TableContext {
         return RAW_IMAGE_CACHE;
     }
 
+    /**
+     * Debounced entry point for resize-triggered cache rebuilds. Coalesces bursts of
+     * resize events (e.g. dragging the frame edge) into a single rebuild + repaint
+     * after the user pauses, instead of re-scaling all 12 piece images on every event.
+     */
+    private void onBoardResized() {
+        if (resizeDebounceTimer != null) resizeDebounceTimer.stop();
+        resizeDebounceTimer = new Timer(RESIZE_DEBOUNCE_MS, e -> {
+            rebuildScaledCaches();
+            boardPanel.drawBoard(chessBoard);
+        });
+        resizeDebounceTimer.setRepeats(false);
+        resizeDebounceTimer.start();
+    }
+
     private void rebuildScaledCaches() {
         final int tw = boardPanel.getWidth() / 8;
         final int th = boardPanel.getHeight() / 8;
@@ -418,7 +437,6 @@ public class Table implements TableContext {
             }
         }
         scaledImageCache = Collections.unmodifiableMap(sc);
-        dragImageCache = scaledImageCache;
     }
 
     // ── Menu bar ──────────────────────────────────────────────────────
@@ -631,7 +649,7 @@ public class Table implements TableContext {
                 dragPoint = e.getPoint();
 
                 final String key = String.valueOf(piece.getPieceAlliance().toString().charAt(0)) + piece;
-                dragImage = dragImageCache.getOrDefault(key, RAW_IMAGE_CACHE.get(key));
+                dragImage = scaledImageCache.getOrDefault(key, RAW_IMAGE_CACHE.get(key));
                 boardPanel.drawBoard(chessBoard);
             }
 
@@ -817,6 +835,7 @@ public class Table implements TableContext {
         halfMoveClock = 0;
         closeEngine();
         SwingUtilities.invokeLater(() -> {
+            historyAndControlsPanel.clearHistory();
             historyAndControlsPanel.redo(chessBoard, moveLog);
             clockPanel.redoTakenPieces(moveLog);
             boardPanel.drawBoard(chessBoard);
@@ -851,6 +870,7 @@ public class Table implements TableContext {
         halfMoveClock = 0;
         closeEngine();
         SwingUtilities.invokeLater(() -> {
+            historyAndControlsPanel.clearHistory();
             historyAndControlsPanel.redo(chessBoard, moveLog);
             clockPanel.redoTakenPieces(moveLog);
             boardPanel.drawBoard(chessBoard);
@@ -884,6 +904,7 @@ public class Table implements TableContext {
             closeEngine();
             boardPanel.clearAnnotations();
             SwingUtilities.invokeLater(() -> {
+                historyAndControlsPanel.clearHistory();
                 historyAndControlsPanel.redo(chessBoard, moveLog);
                 clockPanel.redoTakenPieces(moveLog);
                 boardPanel.drawBoard(chessBoard);
@@ -960,6 +981,7 @@ public class Table implements TableContext {
         closeEngine();
         boardPanel.clearAnnotations();
         SwingUtilities.invokeLater(() -> {
+            historyAndControlsPanel.clearHistory();
             historyAndControlsPanel.redo(chessBoard, moveLog);
             clockPanel.redoTakenPieces(moveLog);
             boardPanel.drawBoard(chessBoard);
@@ -989,6 +1011,7 @@ public class Table implements TableContext {
         closeEngine();
         clockPanel.reset(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
+            historyAndControlsPanel.clearHistory();
             historyAndControlsPanel.redo(chessBoard, moveLog);
             clockPanel.redoTakenPieces(moveLog);
             boardPanel.drawBoard(chessBoard);
@@ -1002,6 +1025,8 @@ public class Table implements TableContext {
 
     /**
      * Closes the Stockfish process if one is running, and clears the reference.
+     * Also stops any in-flight piece animation so a stray animation can't fire
+     * after the board has been reset/undone/reloaded out from under it.
      */
     private void closeEngine() {
         // Cancel the SwingWorker first — this sets isCancelled() so done() bails out
@@ -1014,6 +1039,12 @@ public class Table implements TableContext {
             stockfishEngine.close();
             stockfishEngine = null;
         }
+        // A Swing Timer can simply be stopped at any time — no interrupt races to worry about.
+        if (animTimer != null) {
+            animTimer.stop();
+            animTimer = null;
+        }
+        animPiece = null;
         gameFrame.setCursor(Cursor.getDefaultCursor());
     }
 
@@ -1049,7 +1080,6 @@ public class Table implements TableContext {
                     return;
                 }
 
-                animPiece = null;
                 final int fromId = m.getCurrentCoordinate();
                 final int toId = m.getDestinationCoordinate();
 
@@ -1070,15 +1100,32 @@ public class Table implements TableContext {
                 animPiece = pieceImg;
                 animProgress = 0f;
 
-                final long durationMs = 180;
-                final long startTime = System.currentTimeMillis();
+                final long durationNs = 180_000_000L; // 180 ms in nanoseconds
+                final long startNs = System.nanoTime();
 
-                if (animTimer != null && animTimer.isRunning()) animTimer.stop();
+                // Stop any previous animation. A Timer can be stopped safely from the EDT
+                // at any point — unlike the old raw Thread approach, there's no interrupt
+                // race between an old animation winding down and a new one starting.
+                if (animTimer != null) animTimer.stop();
 
-                animTimer = new javax.swing.Timer(16, ev -> {
-                    final float elapsed = (float) (System.currentTimeMillis() - startTime) / durationMs;
-                    if (elapsed >= 1f) {
-                        animProgress = 1f;
+                final int x1 = (int) Math.min(animFromX, animToX);
+                final int y1 = (int) Math.min(animFromY, animToY);
+                final int x2 = (int) Math.max(animFromX, animToX) + tw;
+                final int y2 = (int) Math.max(animFromY, animToY) + th;
+
+                // Timer callbacks already run on the EDT, so no manual invokeLater /
+                // thread-hopping is needed, and there's no busy-spinning burning CPU.
+                animTimer = new Timer(8, null); // ~120 fps target
+                animTimer.addActionListener(e -> {
+                    final float raw = (float) (System.nanoTime() - startNs) / durationNs;
+                    final boolean done = raw >= 1f;
+
+                    // Ease-out cubic: 1-(1-t)³ — starts fast, decelerates into destination.
+                    final float inv = 1f - Math.min(raw, 1f);
+                    animProgress = 1f - inv * inv * inv;
+                    boardPanel.repaint(x1, y1, x2 - x1, y2 - y1);
+
+                    if (done) {
                         animTimer.stop();
                         animPiece = null;
 
@@ -1094,12 +1141,10 @@ public class Table implements TableContext {
                         moveLog.addMove(m);
                         recordPosition(m);
 
-                        if (chessBoard.getCurrentPlayer().isInCheck()) SoundManager.play(SoundManager.SoundType.CHECK);
+                        if (chessBoard.getCurrentPlayer().isInCheck())
+                            SoundManager.play(SoundManager.SoundType.CHECK);
 
                         afterMoveRefresh();
-                    } else {
-                        animProgress = elapsed;
-                        boardPanel.repaint();
                     }
                 });
                 animTimer.start();

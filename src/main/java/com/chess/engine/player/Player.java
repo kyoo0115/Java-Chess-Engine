@@ -17,9 +17,9 @@ public abstract class Player {
 
     // Static offset arrays — defined once, shared across all attack-detection calls.
     private static final int[] KNIGHT_OFFSETS = {-17, -15, -10, -6, 6, 10, 15, 17};
-    private static final int[] KING_OFFSETS   = {-9, -8, -7, -1, 1, 7, 8, 9};
-    private static final int[] DIAG_DIRS      = {-9, -7, 7, 9};
-    private static final int[] STRAIGHT_DIRS  = {-1, 1, -8, 8};
+    private static final int[] KING_OFFSETS = {-9, -8, -7, -1, 1, 7, 8, 9};
+    private static final int[] DIAG_DIRS = {-9, -7, 7, 9};
+    private static final int[] STRAIGHT_DIRS = {-1, 1, -8, 8};
 
     protected final Board board;
     protected final King playerKing;
@@ -151,7 +151,7 @@ public abstract class Player {
             int sq = from;
             while (true) {
                 if (dir == -1 && BoardUtils.isFirstColumn(sq)) break;
-                if (dir ==  1 && BoardUtils.isEighthColumn(sq)) break;
+                if (dir == 1 && BoardUtils.isEighthColumn(sq)) break;
                 sq += dir;
                 if (!BoardUtils.isValidTileCoordinate(sq)) break;
                 if (sq == target) return true;
@@ -228,14 +228,14 @@ public abstract class Player {
     /**
      * Attempts to add a king-side or queen-side castle move to {@code castles}.
      *
-     * @param castles          output list
-     * @param kingDest         destination square for the king
-     * @param rookSquare       current square of the rook
-     * @param rookDest         destination square for the rook
-     * @param emptySquares     squares that must be unoccupied
-     * @param transitSquares   squares the king passes through (must not be attacked)
-     * @param attacker         the opponent's alliance (used for attack detection)
-     * @param kingSide         true → KingSideCastleMove, false → QueenSideCastleMove
+     * @param castles        output list
+     * @param kingDest       destination square for the king
+     * @param rookSquare     current square of the rook
+     * @param rookDest       destination square for the rook
+     * @param emptySquares   squares that must be unoccupied
+     * @param transitSquares squares the king passes through (must not be attacked)
+     * @param attacker       the opponent's alliance (used for attack detection)
+     * @param kingSide       true → KingSideCastleMove, false → QueenSideCastleMove
      */
     protected void addCastleIfLegal(final List<Move> castles,
                                     final int kingDest, final int rookSquare, final int rookDest,
