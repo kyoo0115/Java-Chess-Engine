@@ -10,6 +10,12 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
     private static final int CHECK_MATE_BONUS = 10000;
     private static final int DEPTH_BONUS = 100;
     private static final int CASTLE_BONUS = 60;
+    /**
+     * Penalty applied when the king has moved (forfeiting castling rights) but has
+     * not actually castled, and we are still in the middlegame.
+     * Larger than CASTLE_BONUS so the engine strongly prefers castling over king moves.
+     */
+    private static final int CASTLING_RIGHTS_LOST_PENALTY = -80;
 
     // ── Pawn structure penalties / bonuses ────────────────────────────
     private static final int DOUBLED_PAWN_PENALTY  = -20;
@@ -120,6 +126,18 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
 
     private static int castled(final Player player) {
         return player.isCastled() ? CASTLE_BONUS : 0;
+    }
+
+    /**
+     * Returns {@link #CASTLING_RIGHTS_LOST_PENALTY} when the king has already moved
+     * (forfeiting castling rights) without having castled, during the middlegame.
+     * Zero in the endgame — king centralisation matters more than castling then.
+     */
+    private static int castlingRightsLost(final Player player, final Board board) {
+        if (totalNonKingMaterial(board) < ENDGAME_MATERIAL_THRESHOLD) return 0;
+        if (player.isCastled()) return 0;
+        if (player.getPlayerKing().isFirstMove()) return 0; // rights still intact
+        return CASTLING_RIGHTS_LOST_PENALTY;
     }
 
     private static int depthBonus(final int depth) {
