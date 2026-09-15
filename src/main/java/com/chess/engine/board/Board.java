@@ -202,7 +202,10 @@ public class Board {
             for (int file = 0; file < 8; file++) {
                 final Tile tile = gameBoard.get(rank * 8 + file);
                 if (tile.isTileOccupied()) {
-                    if (empty > 0) { sb.append(empty); empty = 0; }
+                    if (empty > 0) {
+                        sb.append(empty);
+                        empty = 0;
+                    }
                     final Piece p = tile.getPiece();
                     String s = p.getPieceType().toString();
                     sb.append(p.getPieceAlliance().isWhite() ? s.toUpperCase() : s.toLowerCase());
@@ -226,9 +229,9 @@ public class Board {
         }
         if (blackPlayer.getPlayerKing().isFirstMove() && blackPlayer.getPlayerKing().getPiecePosition() == 4) {
             for (Piece p : blackPieces)
-                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 7)  castling += "k";
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 7) castling += "k";
             for (Piece p : blackPieces)
-                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 0)  castling += "q";
+                if (p.getPieceType().isRook() && p.isFirstMove() && p.getPiecePosition() == 0) castling += "q";
         }
         sb.append(castling.isEmpty() ? "-" : castling);
         sb.append(' ');
@@ -239,7 +242,7 @@ public class Board {
             final int pos = enPassantPawn.getPiecePosition();
             final int epTile = enPassantPawn.getPieceAlliance().isWhite() ? pos + 8 : pos - 8;
             final char epFile = (char) ('a' + epTile % 8);
-            final int  epRank = 8 - epTile / 8;
+            final int epRank = 8 - epTile / 8;
             sb.append(epFile).append(epRank);
         } else {
             sb.append('-');

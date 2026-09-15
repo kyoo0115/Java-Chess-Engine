@@ -26,7 +26,9 @@ import java.io.IOException;
  */
 public class EngineMatch {
 
-    /** Total number of games to play (split evenly: A-white then A-black). */
+    /**
+     * Total number of games to play (split evenly: A-white then A-black).
+     */
     private static final int GAMES = 10;
 
     /**
@@ -53,8 +55,8 @@ public class EngineMatch {
         System.out.println("╔══════════════════════════════════════════════════╗");
         System.out.println("║        JavaChess Engine Match Runner             ║");
         System.out.println("╠══════════════════════════════════════════════════╣");
-        System.out.printf( "║  %-20s  vs  %-20s ║%n", nameA, nameB);
-        System.out.printf( "║  Games: %-5d   Max plies/game: %-5d           ║%n", GAMES, MAX_PLIES);
+        System.out.printf("║  %-20s  vs  %-20s ║%n", nameA, nameB);
+        System.out.printf("║  Games: %-5d   Max plies/game: %-5d           ║%n", GAMES, MAX_PLIES);
         System.out.println("╚══════════════════════════════════════════════════╝");
         System.out.println();
 
@@ -72,9 +74,11 @@ public class EngineMatch {
                 final GameResult result = playGame(white, black, g, whiteLabel, blackLabel);
 
                 if (result == GameResult.WHITE_WIN) {
-                    if (aIsWhite) winsA++; else winsB++;
+                    if (aIsWhite) winsA++;
+                    else winsB++;
                 } else if (result == GameResult.BLACK_WIN) {
-                    if (!aIsWhite) winsA++; else winsB++;
+                    if (!aIsWhite) winsA++;
+                    else winsB++;
                 } else {
                     draws++;
                 }

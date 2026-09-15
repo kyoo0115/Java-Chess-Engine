@@ -16,7 +16,9 @@ import java.util.List;
 public class GameSetup extends JDialog {
 
     private static final String[] DIFFICULTY_LABELS = {"Easy", "Medium", "Hard", "Master", "Custom"};
-    /** Movetime in ms for each difficulty preset. -1 = custom. */
+    /**
+     * Movetime in ms for each difficulty preset. -1 = custom.
+     */
     private static final int[] DIFFICULTY_MOVETIMES = {100, 500, 2000, 5000, -1};
 
     private static final int[] PRESET_MINUTES = {1, 3, 5, 10, 15, 30, -1};
@@ -501,7 +503,9 @@ public class GameSetup extends JDialog {
         return getBlackPlayerType() == PlayerType.COMPUTER;
     }
 
-    /** Returns the movetime in ms for the currently selected difficulty. */
+    /**
+     * Returns the movetime in ms for the currently selected difficulty.
+     */
     public int getMoveTimeMs() {
         if (selectedDiffIdx >= 0 && selectedDiffIdx < DIFFICULTY_MOVETIMES.length) {
             if (DIFFICULTY_MOVETIMES[selectedDiffIdx] == -1) {

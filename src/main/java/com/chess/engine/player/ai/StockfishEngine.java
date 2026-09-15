@@ -34,6 +34,11 @@ import java.util.concurrent.TimeUnit;
  */
 public final class StockfishEngine implements MoveStrategy, Closeable {
 
+    // ── Difficulty presets (movetime in ms) ───────────────────────────────────
+    public static final int MOVETIME_EASY = 100;
+    public static final int MOVETIME_MEDIUM = 500;
+    public static final int MOVETIME_HARD = 2000;
+    public static final int MOVETIME_MASTER = 5000;
     // ── Known fallback binary paths ───────────────────────────────────────────
     private static final String[] FALLBACK_PATHS = {
             "C:\\stockfish\\stockfish.exe",
@@ -41,19 +46,14 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
             "/usr/local/bin/stockfish",
             "/opt/homebrew/bin/stockfish",
     };
-
     private final int moveTimeMs;
     private final Process process;
     private final BufferedReader reader;
     private final BufferedWriter writer;
-    /** Set to true by {@link #close()} so {@link #execute} knows not to log pipe errors. */
+    /**
+     * Set to true by {@link #close()} so {@link #execute} knows not to log pipe errors.
+     */
     private volatile boolean closed = false;
-
-    // ── Difficulty presets (movetime in ms) ───────────────────────────────────
-    public static final int MOVETIME_EASY   =   100;
-    public static final int MOVETIME_MEDIUM =   500;
-    public static final int MOVETIME_HARD   =  2000;
-    public static final int MOVETIME_MASTER =  5000;
 
     /**
      * Creates a new engine instance and initializes the UCI handshake.
@@ -101,79 +101,6 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
 
     // ── MoveStrategy ──────────────────────────────────────────────────────────
 
-    @Override
-    public Move execute(final Board board) {
-        if (closed) return null;
-        final String fen = board.toFEN();
-        try {
-            send("position fen " + fen);
-            send("go movetime " + moveTimeMs);
-            final String bestmove = readBestMove();
-            if (bestmove == null) return null;
-            System.out.println("Stockfish bestmove: " + bestmove + "  (" + moveTimeMs + " ms)");
-            return findMove(board, bestmove);
-        } catch (IOException e) {
-            if (!closed) System.err.println("StockfishEngine error: " + e.getMessage());
-            return null;
-        }
-    }
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
-
-    @Override
-    public void close() {
-        closed = true;
-        System.out.println("StockfishEngine closing  (pid=" + process.pid() + ")");
-        try {
-            send("quit");
-        } catch (IOException ignored) {
-        }
-        process.destroyForcibly();
-        try {
-            process.waitFor(2, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        System.out.println("StockfishEngine closed   (alive=" + process.isAlive() + ")");
-    }
-
-    // ── UCI helpers ───────────────────────────────────────────────────────────
-
-    private void send(final String command) throws IOException {
-        writer.write(command);
-        writer.newLine();
-        writer.flush();
-    }
-
-    /** Reads lines until one starts with {@code prefix}, discarding everything else. */
-    private void waitFor(final String prefix) throws IOException {
-        String line;
-        while ((line = reader.readLine()) != null) {
-            if (line.startsWith(prefix)) return;
-        }
-    }
-
-    /**
-     * Reads lines until a {@code bestmove} line arrives and returns the first token
-     * after "bestmove" (the move in UCI coordinate notation, e.g. "e2e4" or "e7e8q").
-     * Returns {@code null} if the stream ends or Stockfish reports "bestmove (none)".
-     */
-    private String readBestMove() throws IOException {
-        String line;
-        while ((line = reader.readLine()) != null) {
-            if (line.startsWith("bestmove")) {
-                final String[] parts = line.split("\\s+");
-                if (parts.length >= 2 && !parts[1].equals("(none)")) {
-                    return parts[1];
-                }
-                return null;
-            }
-        }
-        return null;
-    }
-
-    // ── Move translation ──────────────────────────────────────────────────────
-
     /**
      * Converts a UCI coordinate string (e.g. "e2e4", "e7e8q") to the matching
      * {@link Move} from the board's current legal moves.
@@ -187,10 +114,10 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
 
         final int fromFile = uci.charAt(0) - 'a';
         final int fromRank = '8' - uci.charAt(1);
-        final int toFile   = uci.charAt(2) - 'a';
-        final int toRank   = '8' - uci.charAt(3);
-        final int fromId   = fromRank * 8 + fromFile;
-        final int toId     = toRank   * 8 + toFile;
+        final int toFile = uci.charAt(2) - 'a';
+        final int toRank = '8' - uci.charAt(3);
+        final int fromId = fromRank * 8 + fromFile;
+        final int toId = toRank * 8 + toFile;
 
         // Promotion piece (5th char): q/r/b/n
         final char promoCh = (uci.length() >= 5) ? Character.toLowerCase(uci.charAt(4)) : 0;
@@ -209,16 +136,18 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         return null;
     }
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
     private static Piece.PieceType promoCharToType(final char c) {
         return switch (c) {
             case 'r' -> Piece.PieceType.ROOK;
             case 'b' -> Piece.PieceType.BISHOP;
             case 'n' -> Piece.PieceType.KNIGHT;
-            default  -> Piece.PieceType.QUEEN;
+            default -> Piece.PieceType.QUEEN;
         };
     }
 
-    // ── Binary discovery ──────────────────────────────────────────────────────
+    // ── UCI helpers ───────────────────────────────────────────────────────────
 
     /**
      * Finds the Stockfish binary. Checks (in order):
@@ -248,7 +177,7 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
 
         throw new IOException(
                 "Stockfish binary not found. Install it (winget install Stockfish.Stockfish) " +
-                "or set the system property -Dstockfish.path=<path> to its location.");
+                        "or set the system property -Dstockfish.path=<path> to its location.");
     }
 
     /**
@@ -276,8 +205,6 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         return null;
     }
 
-    // ── Availability check ────────────────────────────────────────────────────
-
     /**
      * Returns {@code true} if a Stockfish binary can be located without throwing.
      * Use this to decide whether to offer Stockfish as an option in the UI.
@@ -289,5 +216,80 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         } catch (IOException e) {
             return false;
         }
+    }
+
+    // ── Move translation ──────────────────────────────────────────────────────
+
+    @Override
+    public Move execute(final Board board) {
+        if (closed) return null;
+        final String fen = board.toFEN();
+        try {
+            send("position fen " + fen);
+            send("go movetime " + moveTimeMs);
+            final String bestmove = readBestMove();
+            if (bestmove == null) return null;
+            System.out.println("Stockfish bestmove: " + bestmove + "  (" + moveTimeMs + " ms)");
+            return findMove(board, bestmove);
+        } catch (IOException e) {
+            if (!closed) System.err.println("StockfishEngine error: " + e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public void close() {
+        closed = true;
+        System.out.println("StockfishEngine closing  (pid=" + process.pid() + ")");
+        try {
+            send("quit");
+        } catch (IOException ignored) {
+        }
+        process.destroyForcibly();
+        try {
+            process.waitFor(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        System.out.println("StockfishEngine closed   (alive=" + process.isAlive() + ")");
+    }
+
+    // ── Binary discovery ──────────────────────────────────────────────────────
+
+    private void send(final String command) throws IOException {
+        writer.write(command);
+        writer.newLine();
+        writer.flush();
+    }
+
+    /**
+     * Reads lines until one starts with {@code prefix}, discarding everything else.
+     */
+    private void waitFor(final String prefix) throws IOException {
+        String line;
+        while ((line = reader.readLine()) != null) {
+            if (line.startsWith(prefix)) return;
+        }
+    }
+
+    // ── Availability check ────────────────────────────────────────────────────
+
+    /**
+     * Reads lines until a {@code bestmove} line arrives and returns the first token
+     * after "bestmove" (the move in UCI coordinate notation, e.g. "e2e4" or "e7e8q").
+     * Returns {@code null} if the stream ends or Stockfish reports "bestmove (none)".
+     */
+    private String readBestMove() throws IOException {
+        String line;
+        while ((line = reader.readLine()) != null) {
+            if (line.startsWith("bestmove")) {
+                final String[] parts = line.split("\\s+");
+                if (parts.length >= 2 && !parts[1].equals("(none)")) {
+                    return parts[1];
+                }
+                return null;
+            }
+        }
+        return null;
     }
 }

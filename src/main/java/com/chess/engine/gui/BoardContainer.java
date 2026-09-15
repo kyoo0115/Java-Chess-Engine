@@ -23,7 +23,9 @@ public class BoardContainer extends JPanel {
         UITheme.addThemeListener(this::repaint);
     }
 
-    /** Force the inner BoardPanel to always be a perfect square. */
+    /**
+     * Force the inner BoardPanel to always be a perfect square.
+     */
     @Override
     public void doLayout() {
         final int w = getWidth();

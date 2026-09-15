@@ -3,14 +3,12 @@ package com.chess.engine.pieces;
 import com.chess.engine.Alliance;
 import com.chess.engine.board.Board;
 import com.chess.engine.board.Move;
-import com.chess.engine.board.Move.PawnPromotion;
+import com.chess.engine.board.Move.*;
 import com.chess.engine.util.BoardUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static com.chess.engine.board.Move.*;
 
 public final class Pawn extends Piece {
 
@@ -142,7 +140,9 @@ public final class Pawn extends Piece {
         return PieceType.PAWN.toString();
     }
 
-    /** Adds all 4 promotion moves (Q, R, B, N) for the given base move. */
+    /**
+     * Adds all 4 promotion moves (Q, R, B, N) for the given base move.
+     */
     private void addPromotionMoves(final List<Move> moves, final Move baseMove) {
         moves.add(new PawnPromotion(baseMove, new Queen(this.pieceAlliance, this.piecePosition, false)));
         moves.add(new PawnPromotion(baseMove, new Rook(this.pieceAlliance, this.piecePosition, false)));

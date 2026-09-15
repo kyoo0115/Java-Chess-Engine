@@ -7,7 +7,8 @@ import com.chess.engine.util.BoardUtils;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.Map;
 
@@ -67,12 +68,18 @@ class BoardEditorDialog extends JDialog {
         setLocationRelativeTo(owner);
     }
 
-    /** Returns the built board after "Done", or null if the user cancelled. */
-    Board getResultBoard() {
-        return resultBoard;
+    private static char allianceChar(final Alliance a) {
+        return a.isWhite() ? 'W' : 'B';
     }
 
     // ── UI construction ───────────────────────────────────────────────────────
+
+    /**
+     * Returns the built board after "Done", or null if the user cancelled.
+     */
+    Board getResultBoard() {
+        return resultBoard;
+    }
 
     private void buildUI() {
         setLayout(new BorderLayout(6, 6));
@@ -193,6 +200,8 @@ class BoardEditorDialog extends JDialog {
         return btn;
     }
 
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
     private JPanel buildButtonRow() {
         final JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -214,16 +223,10 @@ class BoardEditorDialog extends JDialog {
         return panel;
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
-
     private void selectPaletteKey(final String key) {
         selectedPaletteKey = ERASER_KEY.equals(key) ? null : key;
         final String name = (selectedPaletteKey == null) ? "Eraser" : selectedPaletteKey;
         selectionLabel.setText("Selected: " + name);
-    }
-
-    private static char allianceChar(final Alliance a) {
-        return a.isWhite() ? 'W' : 'B';
     }
 
     /**
@@ -257,7 +260,7 @@ class BoardEditorDialog extends JDialog {
                 case 'B' -> new Bishop(i, a);
                 case 'N' -> new Knight(i, a);
                 case 'P' -> new Pawn(i, a);
-                default  -> null;
+                default -> null;
             };
             if (piece != null) builder.setPiece(piece);
         }

@@ -9,9 +9,7 @@ import com.chess.engine.util.BoardUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 public abstract class Player {
 
@@ -31,11 +29,11 @@ public abstract class Player {
     /**
      * Returns true if {@code square} is attacked by any piece of {@code attacker} alliance
      * on the given board, using proper piece-based attack detection.
-     *
+     * <p>
      * Unlike calculateAttacksOnTile(), this correctly handles:
      * - Pawns attacking empty diagonal squares (not captured in move lists)
      * - Excludes pawn forward moves (which are not attacks)
-     *
+     * <p>
      * Used for castling transit/destination square validation.
      */
     public static boolean isSquareAttackedBy(final Board board, final int square, final Alliance attacker) {
@@ -51,7 +49,7 @@ public abstract class Player {
             case PAWN -> {
                 // Pawn attacks its two diagonal squares regardless of occupancy
                 final int dir = piece.getPieceAlliance().getDirection();
-                final int leftAttack  = pos + dir * 7;
+                final int leftAttack = pos + dir * 7;
                 final int rightAttack = pos + dir * 9;
                 // Left diagonal (wraps excluded)
                 if (leftAttack == square && !isLeftColumnExclusion(piece.getPieceAlliance(), pos)) return true;
@@ -67,10 +65,16 @@ public abstract class Player {
                 }
                 return false;
             }
-            case BISHOP -> { return isDiagonalAttack(board, pos, square); }
-            case ROOK   -> { return isStraightAttack(board, pos, square); }
-            case QUEEN  -> { return isDiagonalAttack(board, pos, square) || isStraightAttack(board, pos, square); }
-            case KING   -> {
+            case BISHOP -> {
+                return isDiagonalAttack(board, pos, square);
+            }
+            case ROOK -> {
+                return isStraightAttack(board, pos, square);
+            }
+            case QUEEN -> {
+                return isDiagonalAttack(board, pos, square) || isStraightAttack(board, pos, square);
+            }
+            case KING -> {
                 final int[] KING_OFFSETS = {-9, -8, -7, -1, 1, 7, 8, 9};
                 for (final int offset : KING_OFFSETS) {
                     final int dest = pos + offset;
@@ -79,41 +83,49 @@ public abstract class Player {
                 }
                 return false;
             }
-            default -> { return false; }
+            default -> {
+                return false;
+            }
         }
     }
 
-    /** Pawn left-column exclusion: piece on file A (black) or file H (white) can't attack left */
+    /**
+     * Pawn left-column exclusion: piece on file A (black) or file H (white) can't attack left
+     */
     private static boolean isLeftColumnExclusion(final Alliance alliance, final int pos) {
         return (BoardUtils.EIGHTH_COLUMN[pos] && alliance.isWhite())
-            || (BoardUtils.FIRST_COLUMN[pos] && alliance.isBlack());
+                || (BoardUtils.FIRST_COLUMN[pos] && alliance.isBlack());
     }
 
-    /** Pawn right-column exclusion: piece on file A (white) or file H (black) can't attack right */
+    /**
+     * Pawn right-column exclusion: piece on file A (white) or file H (black) can't attack right
+     */
     private static boolean isRightColumnExclusion(final Alliance alliance, final int pos) {
         return (BoardUtils.FIRST_COLUMN[pos] && alliance.isWhite())
-            || (BoardUtils.EIGHTH_COLUMN[pos] && alliance.isBlack());
+                || (BoardUtils.EIGHTH_COLUMN[pos] && alliance.isBlack());
     }
 
     private static boolean isKnightColumnExclusion(final int pos, final int offset) {
-        return (BoardUtils.FIRST_COLUMN[pos]  && (offset == -17 || offset == -10 || offset == 6  || offset == 15))
-            || (BoardUtils.SECOND_COLUMN[pos] && (offset == -10 || offset == 6))
-            || (BoardUtils.SEVENTH_COLUMN[pos]&& (offset == -6  || offset == 10))
-            || (BoardUtils.EIGHTH_COLUMN[pos] && (offset == -15 || offset == -6  || offset == 10 || offset == 17));
+        return (BoardUtils.FIRST_COLUMN[pos] && (offset == -17 || offset == -10 || offset == 6 || offset == 15))
+                || (BoardUtils.SECOND_COLUMN[pos] && (offset == -10 || offset == 6))
+                || (BoardUtils.SEVENTH_COLUMN[pos] && (offset == -6 || offset == 10))
+                || (BoardUtils.EIGHTH_COLUMN[pos] && (offset == -15 || offset == -6 || offset == 10 || offset == 17));
     }
 
     private static boolean isKingColumnExclusion(final int pos, final int offset) {
-        return (BoardUtils.FIRST_COLUMN[pos]  && (offset == -9 || offset == -1 || offset == 7))
-            || (BoardUtils.EIGHTH_COLUMN[pos] && (offset == -7 || offset == 1  || offset == 9));
+        return (BoardUtils.FIRST_COLUMN[pos] && (offset == -9 || offset == -1 || offset == 7))
+                || (BoardUtils.EIGHTH_COLUMN[pos] && (offset == -7 || offset == 1 || offset == 9));
     }
 
-    /** Ray-trace along diagonals from {@code from} to see if {@code target} is attacked. */
+    /**
+     * Ray-trace along diagonals from {@code from} to see if {@code target} is attacked.
+     */
     private static boolean isDiagonalAttack(final Board board, final int from, final int target) {
         for (final int dir : new int[]{-9, -7, 7, 9}) {
             int sq = from;
             while (true) {
-                if (BoardUtils.FIRST_COLUMN[sq]  && (dir == -9 || dir == 7))  break;
-                if (BoardUtils.EIGHTH_COLUMN[sq] && (dir == -7 || dir == 9))  break;
+                if (BoardUtils.FIRST_COLUMN[sq] && (dir == -9 || dir == 7)) break;
+                if (BoardUtils.EIGHTH_COLUMN[sq] && (dir == -7 || dir == 9)) break;
                 sq += dir;
                 if (!BoardUtils.isValidTileCoordinate(sq)) break;
                 if (sq == target) return true;
@@ -123,14 +135,16 @@ public abstract class Player {
         return false;
     }
 
-    /** Ray-trace along ranks/files from {@code from} to see if {@code target} is attacked. */
+    /**
+     * Ray-trace along ranks/files from {@code from} to see if {@code target} is attacked.
+     */
     private static boolean isStraightAttack(final Board board, final int from, final int target) {
         // Rank (horizontal)
         for (final int dir : new int[]{-1, 1}) {
             int sq = from;
             while (true) {
-                if (dir == -1 && BoardUtils.FIRST_COLUMN[sq])  break;
-                if (dir ==  1 && BoardUtils.EIGHTH_COLUMN[sq]) break;
+                if (dir == -1 && BoardUtils.FIRST_COLUMN[sq]) break;
+                if (dir == 1 && BoardUtils.EIGHTH_COLUMN[sq]) break;
                 sq += dir;
                 if (!BoardUtils.isValidTileCoordinate(sq)) break;
                 if (sq == target) return true;

@@ -14,9 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.chess.engine.pieces.Piece.PieceType.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * EPD (Extended Position Description) puzzle suite.
@@ -33,7 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class EpdPuzzleTest {
 
-    /** Movetime in ms given to Stockfish per puzzle move — enough to solve mates reliably. */
+    /**
+     * Movetime in ms given to Stockfish per puzzle move — enough to solve mates reliably.
+     */
     private static final int PUZZLE_MOVETIME_MS = 1000;
 
     // ── Puzzle loading ────────────────────────────────────────────────────────
@@ -93,6 +94,33 @@ class EpdPuzzleTest {
 
     // ── Test ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Converts a Move to coordinate notation, e.g. "e2e4" or "e7e8q".
+     */
+    private static String moveToCoord(final Move move) {
+        final String from = coordName(move.getCurrentCoordinate());
+        final String to = coordName(move.getDestinationCoordinate());
+        if (move instanceof Move.PawnPromotion pp) {
+            final char promo = switch (pp.getPromotionPiece().getPieceType()) {
+                case QUEEN -> 'q';
+                case ROOK -> 'r';
+                case BISHOP -> 'b';
+                case KNIGHT -> 'n';
+                default -> 'q';
+            };
+            return from + to + promo;
+        }
+        return from + to;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static String coordName(final int tileId) {
+        final char file = (char) ('a' + tileId % 8);
+        final char rank = (char) ('8' - tileId / 8);
+        return "" + file + rank;
+    }
+
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("puzzles")
     @DisplayName("EPD puzzle suite")
@@ -126,31 +154,6 @@ class EpdPuzzleTest {
         assertTrue(correct,
                 puzzle.id() + ": engine played " + foundCoord
                         + ", expected one of " + puzzle.bestMoves());
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /** Converts a Move to coordinate notation, e.g. "e2e4" or "e7e8q". */
-    private static String moveToCoord(final Move move) {
-        final String from = coordName(move.getCurrentCoordinate());
-        final String to   = coordName(move.getDestinationCoordinate());
-        if (move instanceof Move.PawnPromotion pp) {
-            final char promo = switch (pp.getPromotionPiece().getPieceType()) {
-                case QUEEN  -> 'q';
-                case ROOK   -> 'r';
-                case BISHOP -> 'b';
-                case KNIGHT -> 'n';
-                default     -> 'q';
-            };
-            return from + to + promo;
-        }
-        return from + to;
-    }
-
-    private static String coordName(final int tileId) {
-        final char file = (char) ('a' + tileId % 8);
-        final char rank = (char) ('8' - tileId / 8);
-        return "" + file + rank;
     }
 
     // ── Data record ──────────────────────────────────────────────────────────

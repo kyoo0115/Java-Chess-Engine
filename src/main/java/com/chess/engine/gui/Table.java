@@ -49,7 +49,8 @@ public class Table implements TableContext {
     private final ClockPanel clockPanel;
     private final LeftSidebar leftSidebar;
     private final HeaderBar headerBar;
-
+    // ── Draw detection (fifty-move rule + threefold repetition) ──────
+    private final Map<String, Integer> positionHistory = new HashMap<>();
     // ── Per-instance scaled caches (rebuilt on board resize) ──────────
     private Map<String, BufferedImage> scaledImageCache = new HashMap<>();
     private Map<String, BufferedImage> dragImageCache = new HashMap<>();
@@ -67,8 +68,6 @@ public class Table implements TableContext {
     // ── Stockfish engine instance (kept alive across moves) ──────────
     private StockfishEngine stockfishEngine = null;
     private AIThinkTank currentThinkTank = null;
-    // ── Draw detection (fifty-move rule + threefold repetition) ──────
-    private final Map<String, Integer> positionHistory = new HashMap<>();
     private int halfMoveClock = 0;
     // Selection / drag state
     private Tile sourceTile;
@@ -1008,7 +1007,9 @@ public class Table implements TableContext {
 
     // ── Engine lifecycle ──────────────────────────────────────────────
 
-    /** Closes the Stockfish process if one is running, and clears the reference. */
+    /**
+     * Closes the Stockfish process if one is running, and clears the reference.
+     */
     private void closeEngine() {
         // Cancel the SwingWorker first — this sets isCancelled() so done() bails out
         if (currentThinkTank != null) {
