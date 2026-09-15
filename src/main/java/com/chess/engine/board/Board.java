@@ -292,11 +292,11 @@ public class Board {
     }
 
     private Collection<Move> calculateLegalMoves(final Collection<Piece> pieces) {
-        final ImmutableList.Builder<Move> builder = ImmutableList.builder();
+        final List<Move> legalMoves = new ArrayList<>(48);
         for (final Piece piece : pieces) {
-            builder.addAll(piece.calculateLegalMoves(this));
+            legalMoves.addAll(piece.calculateLegalMoves(this));
         }
-        return builder.build();
+        return ImmutableList.copyOf(legalMoves);
     }
 
     private Collection<Piece> calculateActivePieces(final List<Tile> gameBoard, final Alliance alliance) {

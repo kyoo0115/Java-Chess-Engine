@@ -7,7 +7,7 @@ import com.chess.engine.pieces.King;
 import com.chess.engine.pieces.Piece;
 import com.chess.engine.pieces.Rook;
 import com.chess.engine.util.BoardUtils;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.Collection;
@@ -23,7 +23,7 @@ public abstract class Player {
 
     protected final Board board;
     protected final King playerKing;
-    protected final ImmutableSet<Move> legalMoves;
+    protected final Collection<Move> legalMoves;
     private final boolean inCheck;
     private final boolean castled;
 
@@ -32,7 +32,7 @@ public abstract class Player {
         this.board = board;
         this.playerKing = findKing();
         this.inCheck = isSquareAttackedBy(board, playerKing.getPiecePosition(), opponentAlliance);
-        this.legalMoves = ImmutableSet.copyOf(Iterables.concat(legalMoves, calculateKingCastles(legalMoves, opponentMoves)));
+        this.legalMoves = ImmutableList.copyOf(Iterables.concat(legalMoves, calculateKingCastles(legalMoves, opponentMoves)));
         this.castled = castled;
     }
 
