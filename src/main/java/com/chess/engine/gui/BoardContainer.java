@@ -5,7 +5,6 @@ import java.awt.*;
 
 public class BoardContainer extends JPanel {
 
-    private static final int MARGIN = 28;
     private static final int MARGIN      = 28;
     /** Extra pixels added to the LEFT margin to accommodate the eval bar. */
     private static final int LEFT_EXTRA  = 20;
