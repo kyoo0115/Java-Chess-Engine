@@ -11,6 +11,12 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
     private static final int DEPTH_BONUS = 100;
     private static final int CASTLE_BONUS = 60;
 
+    // ── Pawn structure penalties / bonuses ────────────────────────────
+    private static final int DOUBLED_PAWN_PENALTY  = -20;
+    private static final int ISOLATED_PAWN_PENALTY = -15;
+    /** Passed-pawn bonus indexed by how many ranks from promotion (0 = next rank, 2 = rank 5). */
+    private static final int[] PASSED_PAWN_BONUS = { 0, 0, 30, 50, 70, 0, 0, 0 };
+
     // ─────────────────────────────────────────────────────────────────
     //  Piece values in centipawns (standard chess engine convention)
     // ─────────────────────────────────────────────────────────────────
@@ -214,6 +220,90 @@ public final class StandardBoardEvaluator implements BoardEvaluator {
                 pieceSquareBonus(player, board) +
                 mobility(player) +
                 check(player) +
-                castled(player);
+                castled(player) +
+                pawnStructure(player, board);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Pawn structure evaluation
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Scores pawn structure for one player.
+     * <ul>
+     *   <li>Doubled pawns: −20 cp per extra pawn on the same file.</li>
+     *   <li>Isolated pawns: −15 cp per pawn with no friendly pawn on adjacent files.</li>
+     *   <li>Passed pawns: +30/50/70 cp depending on how advanced they are.</li>
+     * </ul>
+     * All values are from the player's own perspective (positive = good for this player).
+     */
+    private static int pawnStructure(final Player player, final Board board) {
+        final boolean isWhite = player.getAlliance().isWhite();
+
+        // Collect pawn files and ranks (board tile 0 = a8, tile 63 = h1).
+        // pawnsOnFile[0..7] = count of this player's pawns on that file.
+        final int[] pawnsOnFile = new int[8];
+        // filePawnRanks[file] = the most-advanced rank index (closest to promotion).
+        // For White, promotion is rank 0 (top); for Black, promotion is rank 7 (bottom).
+        // We store the raw board rank (0–7) of each pawn per file (the most advanced one).
+        final int[] bestRankOnFile = new int[8];
+        java.util.Arrays.fill(bestRankOnFile, -1);
+
+        for (final Piece p : player.getActivePieces()) {
+            if (p.getPieceType() != Piece.PieceType.PAWN) continue;
+            final int pos  = p.getPiecePosition();
+            final int file = pos % 8;
+            final int rank = pos / 8; // 0 = rank 8 (top), 7 = rank 1 (bottom)
+            pawnsOnFile[file]++;
+            if (isWhite) {
+                // White advances toward rank 0 — smaller rank = more advanced
+                if (bestRankOnFile[file] == -1 || rank < bestRankOnFile[file])
+                    bestRankOnFile[file] = rank;
+            } else {
+                // Black advances toward rank 7 — larger rank = more advanced
+                if (bestRankOnFile[file] == -1 || rank > bestRankOnFile[file])
+                    bestRankOnFile[file] = rank;
+            }
+        }
+
+        // Opponent pawn files — needed for passed-pawn check.
+        final int[] opponentPawnsOnFile = new int[8];
+        for (final Piece p : player.getOpponent().getActivePieces()) {
+            if (p.getPieceType() == Piece.PieceType.PAWN)
+                opponentPawnsOnFile[p.getPiecePosition() % 8]++;
+        }
+
+        int score = 0;
+
+        for (int file = 0; file < 8; file++) {
+            final int count = pawnsOnFile[file];
+            if (count == 0) continue;
+
+            // ── Doubled pawns ─────────────────────────────────────────
+            if (count > 1) score += (count - 1) * DOUBLED_PAWN_PENALTY;
+
+            // ── Isolated pawns ────────────────────────────────────────
+            final boolean leftEmpty  = (file == 0) || (pawnsOnFile[file - 1] == 0);
+            final boolean rightEmpty = (file == 7) || (pawnsOnFile[file + 1] == 0);
+            if (leftEmpty && rightEmpty) score += count * ISOLATED_PAWN_PENALTY;
+
+            // ── Passed pawns ──────────────────────────────────────────
+            // A pawn is passed if no opponent pawn is on the same or adjacent files
+            // ahead of it. We use the most-advanced pawn on this file.
+            final boolean noOpponentAhead =
+                    opponentPawnsOnFile[file] == 0
+                    && (file == 0 || opponentPawnsOnFile[file - 1] == 0)
+                    && (file == 7 || opponentPawnsOnFile[file + 1] == 0);
+            if (noOpponentAhead && bestRankOnFile[file] != -1) {
+                // ranksFromPromotion: 0 = on the promotion rank (already queened),
+                // 1 = one step away, etc.
+                final int rank = bestRankOnFile[file];
+                final int ranksFromPromo = isWhite ? rank : (7 - rank);
+                if (ranksFromPromo < PASSED_PAWN_BONUS.length)
+                    score += PASSED_PAWN_BONUS[ranksFromPromo];
+            }
+        }
+
+        return score;
     }
 }

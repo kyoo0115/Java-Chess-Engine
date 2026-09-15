@@ -263,6 +263,9 @@ public class Minimax implements MoveStrategy {
         return "Minimax (Alpha-Beta + TT + Killers + Quiescence)";
     }
 
+    /** Initial aspiration window half-width in centipawns. */
+    private static final int ASPIRATION_DELTA = 50;
+
     @Override
     public Move execute(final Board board) {
         transpositionTable.clear();
@@ -298,6 +301,8 @@ public class Minimax implements MoveStrategy {
             bestMove = rootLegalMoves.getFirst();
         }
 
+        int prevScore = 0; // score from the previous iteration, used to centre the window
+
         // Iterative deepening: search depth 1..searchDepth, carrying TT across iterations.
         // The best move from iteration d is placed first in the move list for iteration d+1.
         for (int currentDepth = 1; currentDepth <= this.searchDepth; currentDepth++) {
@@ -307,45 +312,95 @@ public class Minimax implements MoveStrategy {
                 killers[i][1] = null;
             }
 
+            // ── Aspiration windows ────────────────────────────────────
+            // Depth 1: use a full window (no previous score to anchor on).
+            // Depth 2+: start with a narrow window; widen on fail-low/fail-high.
+            int alpha, beta;
+            if (currentDepth == 1) {
+                alpha = Integer.MIN_VALUE;
+                beta  = Integer.MAX_VALUE;
+            } else {
+                alpha = prevScore - ASPIRATION_DELTA;
+                beta  = prevScore + ASPIRATION_DELTA;
+            }
+
             Move iterationBest = null;
-            int highestSeenValue = Integer.MIN_VALUE;
-            int lowestSeenValue = Integer.MAX_VALUE;
-            int alpha = Integer.MIN_VALUE;
-            int beta = Integer.MAX_VALUE;
+            int bestScore = isWhite ? Integer.MIN_VALUE : Integer.MAX_VALUE;
 
-            // Build move list with previous iteration's best move at the front
-            final List<Move> moves = orderedMoves(board, 0);
-            if (bestMove != null && moves.remove(bestMove)) moves.addFirst(bestMove);
+            // Aspiration retry loop: widen the window until the search fits inside it.
+            //
+            // FIX: the original version only checked ONE failure direction per side
+            // (fail-low for White, fail-high for Black), so a fail-HIGH for White (or
+            // fail-LOW for Black) was silently accepted as an accurate score instead of
+            // triggering a re-search — quietly clipping the true evaluation.
+            //
+            // It also compared the re-searched (full-window) score against the stale
+            // prevScore +/- ASPIRATION_DELTA bounds instead of against the window it was
+            // actually searched with. Any position where the true score swings by more
+            // than ASPIRATION_DELTA between iterations (a capture, a spotted mate, a
+            // blunder avoided) would re-trigger "failed" forever with an already-infinite
+            // window, hanging the engine.
+            //
+            // Fix: check both fail directions against the *current* alpha/beta for both
+            // colors, and only retry if the window isn't already maximal.
+            while (true) {
+                Move tryBest  = null;
+                int  tryScore = isWhite ? Integer.MIN_VALUE : Integer.MAX_VALUE;
 
-            for (final Move move : moves) {
-                final MoveTransition moveTransition = board.getCurrentPlayer().makeMove(move);
-                if (!moveTransition.getMoveStatus().isDone()) continue;
+                // Capture whether we're entering this attempt with the full window,
+                // BEFORE alpha/beta get narrowed by the move loop below.
+                final boolean windowIsFull = (alpha == Integer.MIN_VALUE && beta == Integer.MAX_VALUE);
 
-                if (isWhite) {
-                    final int currentValue = min(
-                            moveTransition.getTransitionBoard(),
-                            currentDepth - 1, alpha, beta, 1);
-                    if (currentValue > highestSeenValue) {
-                        highestSeenValue = currentValue;
-                        iterationBest = move;
-                        alpha = highestSeenValue;
-                    }
-                } else {
-                    final int currentValue = max(
-                            moveTransition.getTransitionBoard(),
-                            currentDepth - 1, alpha, beta, 1);
-                    if (currentValue < lowestSeenValue) {
-                        lowestSeenValue = currentValue;
-                        iterationBest = move;
-                        beta = lowestSeenValue;
+                // Build move list with previous iteration's best move at the front
+                final List<Move> moves = orderedMoves(board, 0);
+                if (bestMove != null && moves.remove(bestMove)) moves.addFirst(bestMove);
+
+                for (final Move move : moves) {
+                    final MoveTransition moveTransition = board.getCurrentPlayer().makeMove(move);
+                    if (!moveTransition.getMoveStatus().isDone()) continue;
+
+                    if (isWhite) {
+                        final int currentValue = min(
+                                moveTransition.getTransitionBoard(),
+                                currentDepth - 1, alpha, beta, 1);
+                        if (currentValue > tryScore) {
+                            tryScore = currentValue;
+                            tryBest  = move;
+                            if (tryScore > alpha) alpha = tryScore;
+                        }
+                    } else {
+                        final int currentValue = max(
+                                moveTransition.getTransitionBoard(),
+                                currentDepth - 1, alpha, beta, 1);
+                        if (currentValue < tryScore) {
+                            tryScore = currentValue;
+                            tryBest  = move;
+                            if (tryScore < beta) beta = tryScore;
+                        }
                     }
                 }
+
+                // A search "fails" (result may be an inaccurate bound rather than an exact
+                // score) if it lands on or outside either edge of the window it was given —
+                // checked symmetrically regardless of side to move.
+                final boolean failed = tryScore <= alpha || tryScore >= beta;
+
+                if (failed && !windowIsFull) {
+                    // Widen to a full window and re-search
+                    alpha = Integer.MIN_VALUE;
+                    beta  = Integer.MAX_VALUE;
+                    continue;
+                }
+
+                iterationBest = tryBest;
+                bestScore     = tryScore;
+                break;
             }
 
             if (iterationBest != null) bestMove = iterationBest;
+            prevScore = bestScore;
 
             // Early exit if checkmate found — no point searching deeper
-            final int bestScore = isWhite ? highestSeenValue : lowestSeenValue;
             if (Math.abs(bestScore) >= 10000 * 100) break;
         }
 

@@ -64,6 +64,9 @@ public class Table implements TableContext {
     private boolean highlightLastMove = true;
     private boolean gameOver = false;
     private boolean engineVsEnginePaused = false;
+    // ── Draw detection (fifty-move rule + threefold repetition) ──────
+    private final Map<String, Integer> positionHistory = new HashMap<>();
+    private int halfMoveClock = 0;
     // Selection / drag state
     private Tile sourceTile;
     private Tile destinationTile;
@@ -561,6 +564,7 @@ public class Table implements TableContext {
         lastMoveDest = toId;
         chessBoard = t.getTransitionBoard();
         moveLog.addMove(move);
+        recordPosition(move);
 
         if (chessBoard.getCurrentPlayer().isInCheck()) SoundManager.play(SoundManager.SoundType.CHECK);
     }
@@ -697,6 +701,26 @@ public class Table implements TableContext {
         return new Move.PawnPromotion(original.getDecoratedMove(), promotedTo);
     }
 
+    /**
+     * Updates the half-move clock and position-repetition history after a move is committed.
+     * Call this immediately after {@code chessBoard} and {@code moveLog} are updated.
+     *
+     * @param move the move that was just played (used to detect pawn moves / captures)
+     */
+    private void recordPosition(final Move move) {
+        final boolean isPawnMove = move.getMovedPiece().getPieceType() == Piece.PieceType.PAWN;
+        if (move.isAttack() || isPawnMove) {
+            halfMoveClock = 0;
+            positionHistory.clear(); // captures/pawn moves make earlier positions unreachable
+        } else {
+            halfMoveClock++;
+        }
+        // Key = first 4 FEN fields: placement + side + castling + ep
+        final String fen = chessBoard.toFEN();
+        final String posKey = fen.substring(0, fen.lastIndexOf(' ', fen.lastIndexOf(' ') - 1));
+        positionHistory.merge(posKey, 1, Integer::sum);
+    }
+
     private void afterMoveRefresh() {
         historyAndControlsPanel.redo(chessBoard, moveLog);
         clockPanel.redoTakenPieces(moveLog);
@@ -713,15 +737,27 @@ public class Table implements TableContext {
         if (gameOver) return;
         final boolean mate = chessBoard.getCurrentPlayer().isCheckMate();
         final boolean stale = chessBoard.getCurrentPlayer().isStaleMate();
-        if (!mate && !stale) return;
+        final boolean fiftyMove = halfMoveClock >= 100; // 100 half-moves = 50 full moves
+        final String fen = chessBoard.toFEN();
+        final String posKey = fen.substring(0, fen.lastIndexOf(' ', fen.lastIndexOf(' ') - 1));
+        final boolean threefold = positionHistory.getOrDefault(posKey, 0) >= 3;
+
+        if (!mate && !stale && !fiftyMove && !threefold) return;
 
         gameOver = true;
         clockPanel.stop();
         SoundManager.play(SoundManager.SoundType.GAME_END);
 
-        final String msg = mate
-                ? "Checkmate!  " + chessBoard.getCurrentPlayer().getOpponent().getAlliance() + " wins!"
-                : "Stalemate!  The game is a draw.";
+        final String msg;
+        if (mate) {
+            msg = "Checkmate!  " + chessBoard.getCurrentPlayer().getOpponent().getAlliance() + " wins!";
+        } else if (stale) {
+            msg = "Stalemate!  The game is a draw.";
+        } else if (fiftyMove) {
+            msg = "Draw by fifty-move rule.";
+        } else {
+            msg = "Draw by threefold repetition.";
+        }
         final int choice = JOptionPane.showOptionDialog(gameFrame, msg, "Game Over",
                 JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE,
                 null, new Object[]{"New Game", "Close"}, "New Game");
@@ -770,6 +806,8 @@ public class Table implements TableContext {
         dragSourceTileId = -1;
         hoverTileId = -1;
         gameOver = false;
+        positionHistory.clear();
+        halfMoveClock = 0;
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
             clockPanel.redoTakenPieces(moveLog);
@@ -802,6 +840,8 @@ public class Table implements TableContext {
         hoverTileId = -1;
         gameOver = false;
         engineVsEnginePaused = false;
+        positionHistory.clear();
+        halfMoveClock = 0;
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
             clockPanel.redoTakenPieces(moveLog);
@@ -832,6 +872,8 @@ public class Table implements TableContext {
             arrowDest = -1;
             gameOver = false;
             engineVsEnginePaused = false;
+            positionHistory.clear();
+            halfMoveClock = 0;
             boardPanel.clearAnnotations();
             SwingUtilities.invokeLater(() -> {
                 historyAndControlsPanel.redo(chessBoard, moveLog);
@@ -906,6 +948,8 @@ public class Table implements TableContext {
         arrowDest = -1;
         gameOver = false;
         engineVsEnginePaused = false;
+        positionHistory.clear();
+        halfMoveClock = 0;
         boardPanel.clearAnnotations();
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
@@ -933,6 +977,8 @@ public class Table implements TableContext {
         arrowDest = -1;
         gameOver = false;
         engineVsEnginePaused = false;
+        positionHistory.clear();
+        halfMoveClock = 0;
         clockPanel.reset(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.redo(chessBoard, moveLog);
@@ -1010,6 +1056,7 @@ public class Table implements TableContext {
                         arrowDest = toId;
                         chessBoard = t.getTransitionBoard();
                         moveLog.addMove(m);
+                        recordPosition(m);
 
                         if (chessBoard.getCurrentPlayer().isInCheck()) SoundManager.play(SoundManager.SoundType.CHECK);
 
