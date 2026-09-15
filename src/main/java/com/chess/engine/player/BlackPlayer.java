@@ -44,16 +44,15 @@ public class BlackPlayer extends Player {
         }
 
         // King-side castle
-        addKingSideCastle(kingCastles, opponentLegals);
+        addKingSideCastle(kingCastles);
 
         // Queen-side castle
-        addQueenSideCastle(kingCastles, opponentLegals);
+        addQueenSideCastle(kingCastles);
 
         return ImmutableList.copyOf(kingCastles);
     }
 
-    private void addKingSideCastle(final List<Move> kingCastles,
-                                   final Collection<Move> opponentLegals) {
+    private void addKingSideCastle(final List<Move> kingCastles) {
 
         final int f8 = 5;
         final int g8 = 6;
@@ -76,8 +75,7 @@ public class BlackPlayer extends Player {
     }
 
 
-    private void addQueenSideCastle(final List<Move> kingCastles,
-                                    final Collection<Move> opponentLegals) {
+    private void addQueenSideCastle(final List<Move> kingCastles) {
 
         final int b8 = 1;
         final int c8 = 2;

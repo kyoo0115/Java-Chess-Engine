@@ -45,15 +45,15 @@ public class WhitePlayer extends Player {
         }
 
         // King-side castle
-        addKingSideCastle(kingCastles, opponentLegals);
+        addKingSideCastle(kingCastles);
 
         // Queen-side castle
-        addQueenSideCastle(kingCastles, opponentLegals);
+        addQueenSideCastle(kingCastles);
 
         return ImmutableList.copyOf(kingCastles);
     }
 
-    private void addKingSideCastle(List<Move> kingCastles, Collection<Move> opponentLegals) {
+    private void addKingSideCastle(List<Move> kingCastles) {
         Tile fTile = this.board.getTile(61);
         Tile gTile = this.board.getTile(62);
         Tile rookTile = this.board.getTile(63);
@@ -69,7 +69,7 @@ public class WhitePlayer extends Player {
         }
     }
 
-    private void addQueenSideCastle(List<Move> kingCastles, Collection<Move> opponentLegals) {
+    private void addQueenSideCastle(List<Move> kingCastles) {
         Tile bTile = this.board.getTile(57);
         Tile cTile = this.board.getTile(58);
         Tile dTile = this.board.getTile(59);

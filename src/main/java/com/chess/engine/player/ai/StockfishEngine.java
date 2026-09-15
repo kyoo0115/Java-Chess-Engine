@@ -93,7 +93,7 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         }, "stockfish-shutdown-hook"));
     }
 
-    // ── MoveStrategy ──────────────────────────────────────────────────────────
+    // ── Move translation ──────────────────────────────────────────────────────
 
     /**
      * Converts a UCI coordinate string (e.g. "e2e4", "e7e8q") to the matching
@@ -130,8 +130,6 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         return null;
     }
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
-
     private static Piece.PieceType promoCharToType(final char c) {
         return switch (c) {
             case 'r' -> Piece.PieceType.ROOK;
@@ -141,7 +139,7 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         };
     }
 
-    // ── UCI helpers ───────────────────────────────────────────────────────────
+    // ── Binary discovery ──────────────────────────────────────────────────────
 
     /**
      * Finds the Stockfish binary. Checks (in order):
@@ -212,7 +210,7 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         }
     }
 
-    // ── Move translation ──────────────────────────────────────────────────────
+    // ── MoveStrategy ──────────────────────────────────────────────────────────
 
     @Override
     public Move execute(final Board board) {
@@ -246,7 +244,7 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         }
     }
 
-    // ── Binary discovery ──────────────────────────────────────────────────────
+    // ── UCI helpers ───────────────────────────────────────────────────────────
 
     private void send(final String command) throws IOException {
         writer.write(command);
@@ -263,8 +261,6 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
             if (line.startsWith(prefix)) return;
         }
     }
-
-    // ── Availability check ────────────────────────────────────────────────────
 
     /**
      * Reads lines until a {@code bestmove} line arrives and returns the first token

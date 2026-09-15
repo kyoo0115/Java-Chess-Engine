@@ -71,7 +71,6 @@ public class Table implements TableContext {
     private int halfMoveClock = 0;
     // Selection / drag state
     private Tile sourceTile;
-    private Tile destinationTile;
     private Piece humanMovedPiece;
     private BufferedImage dragImage;
     private Point dragPoint;
@@ -599,7 +598,6 @@ public class Table implements TableContext {
 
     private void onRightClick() {
         sourceTile = null;
-        destinationTile = null;
         humanMovedPiece = null;
         dragSourceTileId = -1;
         boardPanel.drawBoard(chessBoard);
@@ -809,7 +807,6 @@ public class Table implements TableContext {
             arrowDest = -1;
         }
         sourceTile = null;
-        destinationTile = null;
         humanMovedPiece = null;
         dragImage = null;
         dragPoint = null;
@@ -843,7 +840,6 @@ public class Table implements TableContext {
         arrowSource = lastMoveSource;
         arrowDest = lastMoveDest;
         sourceTile = null;
-        destinationTile = null;
         humanMovedPiece = null;
         dragImage = null;
         dragPoint = null;
@@ -872,7 +868,6 @@ public class Table implements TableContext {
             chessBoard = Board.fromFEN(fen.trim());
             moveLog.clear();
             sourceTile = null;
-            destinationTile = null;
             humanMovedPiece = null;
             dragImage = null;
             dragPoint = null;
@@ -949,7 +944,6 @@ public class Table implements TableContext {
         chessBoard = result;
         moveLog.clear();
         sourceTile = null;
-        destinationTile = null;
         humanMovedPiece = null;
         dragImage = null;
         dragPoint = null;
@@ -979,7 +973,6 @@ public class Table implements TableContext {
         chessBoard = Board.createStandardBoard();
         moveLog.clear();
         sourceTile = null;
-        destinationTile = null;
         humanMovedPiece = null;
         dragImage = null;
         dragPoint = null;
@@ -1033,8 +1026,7 @@ public class Table implements TableContext {
                 if (stockfishEngine == null) {
                     stockfishEngine = new StockfishEngine(gameSetup.getMoveTimeMs());
                 }
-                final Move move = stockfishEngine.execute(chessBoard);
-                return move;
+                return stockfishEngine.execute(chessBoard);
             } catch (Exception e) {
                 System.err.println("StockfishEngine error: " + e.getMessage());
                 return null;
