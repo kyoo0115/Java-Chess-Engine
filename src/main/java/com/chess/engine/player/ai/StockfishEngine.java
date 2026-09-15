@@ -48,12 +48,18 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
             "/usr/local/bin/stockfish",
             "/opt/homebrew/bin/stockfish",
     };
-    /** Pre-compiled pattern for parsing "info … score cp X …" lines. */
-    private static final Pattern SCORE_CP   = Pattern.compile("\\bscore cp (-?\\d+)\\b");
-    /** Pre-compiled pattern for parsing "info … score mate X …" lines. */
+    /**
+     * Pre-compiled pattern for parsing "info … score cp X …" lines.
+     */
+    private static final Pattern SCORE_CP = Pattern.compile("\\bscore cp (-?\\d+)\\b");
+    /**
+     * Pre-compiled pattern for parsing "info … score mate X …" lines.
+     */
     private static final Pattern SCORE_MATE = Pattern.compile("\\bscore mate (-?\\d+)\\b");
-    /** Pre-compiled pattern for extracting the pv (principal variation) first move. */
-    private static final Pattern PV_MOVE    = Pattern.compile("\\bpv (\\S+)");
+    /**
+     * Pre-compiled pattern for extracting the pv (principal variation) first move.
+     */
+    private static final Pattern PV_MOVE = Pattern.compile("\\bpv (\\S+)");
 
     private final int moveTimeMs;
     private final Process process;
@@ -258,9 +264,9 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
      * the last seen score and pv move from the {@code info} lines.
      */
     private AnalysisResult readAnalysisResult(final boolean blackToMove) throws IOException {
-        int lastScoreCp   = 0;
-        boolean hasMate   = false;
-        int lastMateIn    = 0;
+        int lastScoreCp = 0;
+        boolean hasMate = false;
+        int lastMateIn = 0;
         String lastPvMove = null;
 
         String line;
@@ -284,12 +290,12 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
             if (line.startsWith("info") && !line.contains("info string")) {
                 final Matcher mateMatcher = SCORE_MATE.matcher(line);
                 if (mateMatcher.find()) {
-                    hasMate   = true;
+                    hasMate = true;
                     lastMateIn = Integer.parseInt(mateMatcher.group(1));
                 } else {
                     final Matcher cpMatcher = SCORE_CP.matcher(line);
                     if (cpMatcher.find()) {
-                        hasMate    = false;
+                        hasMate = false;
                         lastScoreCp = Integer.parseInt(cpMatcher.group(1));
                     }
                 }

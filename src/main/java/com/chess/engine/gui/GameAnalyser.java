@@ -3,7 +3,6 @@ package com.chess.engine.gui;
 import com.chess.engine.board.Board;
 import com.chess.engine.board.Move;
 import com.chess.engine.board.MoveLog;
-import com.chess.engine.pieces.Piece;
 import com.chess.engine.player.ai.AnalysisResult;
 import com.chess.engine.player.ai.StockfishEngine;
 
@@ -37,10 +36,14 @@ public class GameAnalyser extends SwingWorker<Void, GameAnalyser.MoveResult> {
 
     // ── Fields ────────────────────────────────────────────────────────────────
 
-    /** Snapshot of the move list taken at construction time — safe to read off-EDT. */
+    /**
+     * Snapshot of the move list taken at construction time — safe to read off-EDT.
+     */
     private final List<Move> moves;
     private final AnalysisPanel panel;
-    /** Called on EDT with the latest eval (White centipawns) for the live eval bar. */
+    /**
+     * Called on EDT with the latest eval (White centipawns) for the live eval bar.
+     */
     private final java.util.function.IntConsumer onLiveEval;
     private final JLabel progressLabel;
 
@@ -58,9 +61,9 @@ public class GameAnalyser extends SwingWorker<Void, GameAnalyser.MoveResult> {
                         final java.util.function.IntConsumer onLiveEval,
                         final JLabel progressLabel) {
         // Snapshot so the worker doesn't race with Table mutations
-        this.moves         = new ArrayList<>(moveLog.getMoves());
-        this.panel         = panel;
-        this.onLiveEval    = onLiveEval;
+        this.moves = new ArrayList<>(moveLog.getMoves());
+        this.panel = panel;
+        this.onLiveEval = onLiveEval;
         this.progressLabel = progressLabel;
     }
 
@@ -88,11 +91,11 @@ public class GameAnalyser extends SwingWorker<Void, GameAnalyser.MoveResult> {
                 if (!t.getMoveStatus().isDone()) continue;
                 board = t.getTransitionBoard();
 
-                final int idx            = i;
+                final int idx = i;
                 final int prevScoreFinal = prevScore;
-                final String notation    = move.toString();
-                final boolean isWhite    = move.getMovedPiece().getPieceAlliance().isWhite();
-                final int fullMove       = (i / 2) + 1;
+                final String notation = move.toString();
+                final boolean isWhite = move.getMovedPiece().getPieceAlliance().isWhite();
+                final int fullMove = (i / 2) + 1;
 
                 final AnalysisResult result = sf.analysePosition(board.toFEN(), ANALYSIS_MOVETIME_MS);
 

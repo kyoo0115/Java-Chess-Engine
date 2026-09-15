@@ -28,40 +28,45 @@ import java.util.List;
 public class AnalysisPanel extends JPanel {
 
     // ── Sizing ────────────────────────────────────────────────────────────────
-    private static final int ROW_HEIGHT  = 34;
-    private static final int NUM_W       = 30;
-    private static final int MOVE_W      = 62;
-    private static final int EVAL_W      = 58;
-    private static final int CLASS_W     = 80; // filled last, takes remaining space
-    private static final int H_PAD       = 8;
-    private static final int PILL_ARC    = 8;
-    private static final int BADGE_H     = 18;
+    private static final int ROW_HEIGHT = 34;
+    private static final int NUM_W = 30;
+    private static final int MOVE_W = 62;
+    private static final int EVAL_W = 58;
+    private static final int CLASS_W = 80; // filled last, takes remaining space
+    private static final int H_PAD = 8;
+    private static final int PILL_ARC = 8;
+    private static final int BADGE_H = 18;
 
     // ── Fonts ─────────────────────────────────────────────────────────────────
-    private static final Font ROW_FONT      = new Font("SansSerif", Font.PLAIN, 12);
-    private static final Font MOVE_FONT     = new Font("SansSerif", Font.BOLD,  12);
-    private static final Font BADGE_FONT    = new Font("SansSerif", Font.BOLD,  10);
-    private static final Font HEADER_FONT   = new Font("SansSerif", Font.BOLD,  12);
-    private static final Font ACCURACY_FONT = new Font("SansSerif", Font.BOLD,  13);
-    private static final Font LABEL_FONT    = new Font("SansSerif", Font.PLAIN, 11);
+    private static final Font ROW_FONT = new Font("SansSerif", Font.PLAIN, 12);
+    private static final Font MOVE_FONT = new Font("SansSerif", Font.BOLD, 12);
+    private static final Font BADGE_FONT = new Font("SansSerif", Font.BOLD, 10);
+    private static final Font HEADER_FONT = new Font("SansSerif", Font.BOLD, 12);
+    private static final Font ACCURACY_FONT = new Font("SansSerif", Font.BOLD, 13);
+    private static final Font LABEL_FONT = new Font("SansSerif", Font.PLAIN, 11);
 
     // ── Data ──────────────────────────────────────────────────────────────────
     private final List<AnalysisRow> rows = new ArrayList<>();
-    /** Per-move centipawn-loss accumulators for accuracy calculation. */
-    private int whiteTotalCpLoss = 0;
-    private int blackTotalCpLoss = 0;
-    private int whiteMoveCount   = 0;
-    private int blackMoveCount   = 0;
-    /** Whether a full analysis has completed (shows accuracy summary). */
-    private boolean analysisComplete = false;
-    /** Progress label — shown while analysis is running. */
-    private String progressText = null;
-
     // ── Sub-components ────────────────────────────────────────────────────────
     private final AccuracyBar accuracyBar;
     private final MoveListPanel listPanel;
     private final JScrollPane scrollPane;
     private final JLabel progressLabel;
+    /**
+     * Per-move centipawn-loss accumulators for accuracy calculation.
+     */
+    private int whiteTotalCpLoss = 0;
+    private int blackTotalCpLoss = 0;
+    private int whiteMoveCount = 0;
+    private int blackMoveCount = 0;
+    /**
+     * Whether a full analysis has completed (shows accuracy summary).
+     */
+    private boolean analysisComplete = false;
+    /**
+     * Progress label — shown while analysis is running.
+     */
+    private String progressText = null;
 
     public AnalysisPanel() {
         super(new BorderLayout(0, 0));
@@ -79,7 +84,7 @@ public class AnalysisPanel extends JPanel {
 
         final JPanel topArea = new JPanel(new BorderLayout());
         topArea.setOpaque(false);
-        topArea.add(accuracyBar,   BorderLayout.NORTH);
+        topArea.add(accuracyBar, BorderLayout.NORTH);
         topArea.add(progressLabel, BorderLayout.CENTER);
 
         // ── Move list ─────────────────────────────────────────────────────────
@@ -107,7 +112,7 @@ public class AnalysisPanel extends JPanel {
         };
         card.setOpaque(false);
         card.setBorder(new EmptyBorder(6, 6, 6, 6));
-        card.add(topArea,   BorderLayout.NORTH);
+        card.add(topArea, BorderLayout.NORTH);
         card.add(scrollPane, BorderLayout.CENTER);
 
         add(card, BorderLayout.CENTER);
@@ -117,15 +122,29 @@ public class AnalysisPanel extends JPanel {
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    /** Removes all rows and resets accuracy counters. Call on EDT. */
+    /**
+     * Standard centipawn-loss accuracy formula:
+     * {@code accuracy = 103.1668 * exp(-0.04354 * avgCpLoss) - 3.1669}
+     * clamped to [0, 100].
+     */
+    private static double accuracy(final int totalCpLoss, final int moves) {
+        if (moves == 0) return 100.0;
+        final double avg = (double) totalCpLoss / moves;
+        final double raw = 103.1668 * Math.exp(-0.04354 * avg) - 3.1669;
+        return Math.max(0, Math.min(100, raw));
+    }
+
+    /**
+     * Removes all rows and resets accuracy counters. Call on EDT.
+     */
     public void clear() {
         rows.clear();
         whiteTotalCpLoss = 0;
         blackTotalCpLoss = 0;
-        whiteMoveCount   = 0;
-        blackMoveCount   = 0;
+        whiteMoveCount = 0;
+        blackMoveCount = 0;
         analysisComplete = false;
-        progressText     = null;
+        progressText = null;
         progressLabel.setVisible(false);
         accuracyBar.setVisible(false);
         listPanel.setPreferredHeight(0);
@@ -136,11 +155,11 @@ public class AnalysisPanel extends JPanel {
     /**
      * Appends one analysed half-move row. Call on EDT (e.g. from SwingWorker.process()).
      *
-     * @param moveNumber    1-based full-move number
-     * @param moveNotation  SAN or coordinate notation of the move played
-     * @param alliance      which side played the move
-     * @param evalBefore    evaluation (White cp) BEFORE the move was played
-     * @param result        Stockfish's analysis of the position AFTER the move
+     * @param moveNumber   1-based full-move number
+     * @param moveNotation SAN or coordinate notation of the move played
+     * @param alliance     which side played the move
+     * @param evalBefore   evaluation (White cp) BEFORE the move was played
+     * @param result       Stockfish's analysis of the position AFTER the move
      */
     public void addRow(final int moveNumber,
                        final String moveNotation,
@@ -157,8 +176,13 @@ public class AnalysisPanel extends JPanel {
         //   Black's loss  = evalAfter  - evalBefore  (positive when position improved for White = bad for Black)
         final int cpLoss = Math.max(0,
                 alliance.isWhite() ? (evalBefore - evalAfter) : (evalAfter - evalBefore));
-        if (alliance.isWhite()) { whiteTotalCpLoss += cpLoss; whiteMoveCount++; }
-        else                    { blackTotalCpLoss += cpLoss; blackMoveCount++; }
+        if (alliance.isWhite()) {
+            whiteTotalCpLoss += cpLoss;
+            whiteMoveCount++;
+        } else {
+            blackTotalCpLoss += cpLoss;
+            blackMoveCount++;
+        }
 
         rows.add(new AnalysisRow(moveNumber, moveNotation, alliance, evalStr, cls, bestMove));
         listPanel.setPreferredHeight(rows.size() * ROW_HEIGHT);
@@ -173,7 +197,9 @@ public class AnalysisPanel extends JPanel {
         }));
     }
 
-    /** Updates the "Analysing move X/Y…" progress text. Pass {@code null} to hide. */
+    /**
+     * Updates the "Analysing move X/Y…" progress text. Pass {@code null} to hide.
+     */
     public void setProgress(final String text) {
         progressText = text;
         if (text != null) {
@@ -184,7 +210,11 @@ public class AnalysisPanel extends JPanel {
         }
     }
 
-    /** Called when the full analysis is done — shows the accuracy summary bar. */
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Called when the full analysis is done — shows the accuracy summary bar.
+     */
     public void onAnalysisComplete() {
         analysisComplete = true;
         progressLabel.setVisible(false);
@@ -192,20 +222,6 @@ public class AnalysisPanel extends JPanel {
         final double blackAcc = accuracy(blackTotalCpLoss, blackMoveCount);
         accuracyBar.update(whiteAcc, blackAcc);
         accuracyBar.setVisible(true);
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * Standard centipawn-loss accuracy formula:
-     * {@code accuracy = 103.1668 * exp(-0.04354 * avgCpLoss) - 3.1669}
-     * clamped to [0, 100].
-     */
-    private static double accuracy(final int totalCpLoss, final int moves) {
-        if (moves == 0) return 100.0;
-        final double avg = (double) totalCpLoss / moves;
-        final double raw = 103.1668 * Math.exp(-0.04354 * avg) - 3.1669;
-        return Math.max(0, Math.min(100, raw));
     }
 
     // ── Inner classes ─────────────────────────────────────────────────────────
@@ -244,7 +260,7 @@ public class AnalysisPanel extends JPanel {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-            final int w  = getWidth() - 16;
+            final int w = getWidth() - 16;
             final int barH = 8;
             final int barY = 32;
             final int barX = 8;
@@ -382,7 +398,7 @@ public class AnalysisPanel extends JPanel {
         }
 
         private void drawCentred(final Graphics2D g2, final String text,
-                                  final int x, final int y, final int cellW) {
+                                 final int x, final int y, final int cellW) {
             final FontMetrics fm = g2.getFontMetrics();
             final int tw = fm.stringWidth(text);
             final int cx = x + (cellW - tw) / 2;

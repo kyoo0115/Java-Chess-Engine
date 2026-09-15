@@ -5,16 +5,22 @@ import java.awt.*;
 
 public class BoardContainer extends JPanel {
 
-    private static final int MARGIN      = 28;
-    /** Extra pixels added to the LEFT margin to accommodate the eval bar. */
-    private static final int LEFT_EXTRA  = 20;
-    /** Width of the live eval bar, painted on the right edge of the left margin. */
-    private static final int EVAL_BAR_W  = 14;
-    /** Gap between the eval bar right edge and the board left edge. */
+    private static final int MARGIN = 28;
+    /**
+     * Extra pixels added to the LEFT margin to accommodate the eval bar.
+     */
+    private static final int LEFT_EXTRA = 20;
+    /**
+     * Width of the live eval bar, painted on the right edge of the left margin.
+     */
+    private static final int EVAL_BAR_W = 14;
+    /**
+     * Gap between the eval bar right edge and the board left edge.
+     */
     private static final int EVAL_BAR_GAP = 4;
 
     private static final Font COORD_FONT = new Font("SansSerif", Font.BOLD, 12);
-    private static final Font EVAL_FONT  = new Font("SansSerif", Font.BOLD, 10);
+    private static final Font EVAL_FONT = new Font("SansSerif", Font.BOLD, 10);
 
     private final BoardPanel boardPanel;
     private final TableContext ctx;
@@ -217,18 +223,20 @@ public class BoardContainer extends JPanel {
         final int labelY = bBottom + (MARGIN + fm2.getAscent()) / 2 - 1;
         // Colour: green when White ahead, muted red when Black ahead, grey for ≈even
         final Color scoreColor;
-        if (liveEvalCp > 20)        scoreColor = new Color(70, 180, 100);
-        else if (liveEvalCp < -20)  scoreColor = new Color(210, 80, 80);
-        else                        scoreColor = UITheme.getTextMuted();
+        if (liveEvalCp > 20) scoreColor = new Color(70, 180, 100);
+        else if (liveEvalCp < -20) scoreColor = new Color(210, 80, 80);
+        else scoreColor = UITheme.getTextMuted();
         g2.setColor(scoreColor);
         g2.drawString(evalStr, labelX, labelY);
     }
 
-    /** Formats {@code liveEvalCp} as "+1.23", "-0.50", "+M", "-M" etc. */
+    /**
+     * Formats {@code liveEvalCp} as "+1.23", "-0.50", "+M", "-M" etc.
+     */
     private String evalDisplayString() {
         // Mate scores stored as ±MATE_SCORE sentinel
         final int MATE = com.chess.engine.player.ai.AnalysisResult.MATE_SCORE;
-        if (liveEvalCp >= MATE)  return "+M";
+        if (liveEvalCp >= MATE) return "+M";
         if (liveEvalCp <= -MATE) return "-M";
         final float pawns = liveEvalCp / 100f;
         return (pawns >= 0 ? "+" : "") + String.format("%.2f", pawns);

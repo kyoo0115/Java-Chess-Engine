@@ -50,14 +50,14 @@ public class Table implements TableContext {
     private final GameHistoryPanel historyAndControlsPanel;
     private final AnalysisPanel analysisPanel;
     private final JPanel rightTabContent;
-    private CardLayout rightTabCards;
-    private JButton tabBtnMoves;
-    private JButton tabBtnAnalysis;
     private final GameSetup gameSetup;
     private final ClockPanel clockPanel;
     private final LeftSidebar leftSidebar;
     private final HeaderBar headerBar;
     private final Map<String, Integer> positionHistory = new HashMap<>();
+    private CardLayout rightTabCards;
+    private JButton tabBtnMoves;
+    private JButton tabBtnAnalysis;
     private Map<String, BufferedImage> scaledImageCache = new HashMap<>();
     private int lastScaledTileSize = -1;
     private Board chessBoard;
@@ -1102,21 +1102,17 @@ public class Table implements TableContext {
      * {@link #analysisPanel} one move at a time. Cancels any previous analysis.
      */
     private void startGameAnalysis() {
-        System.out.println("startGameAnalysis: moveLog.size()=" + moveLog.size());
         if (moveLog.size() == 0) {
             JOptionPane.showMessageDialog(gameFrame,
                     "No moves to analyse yet.", "Analyse Game", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        System.out.println("startGameAnalysis: checking Stockfish availability...");
         if (!StockfishEngine.isAvailable()) {
-            System.out.println("startGameAnalysis: Stockfish NOT available");
             JOptionPane.showMessageDialog(gameFrame,
                     "Stockfish is not installed. Install it to enable analysis.",
                     "Engine Not Found", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        System.out.println("startGameAnalysis: Stockfish available, launching analyser");
         // Cancel any previous full analysis
         if (currentAnalyser != null) {
             currentAnalyser.cancel(true);
@@ -1159,7 +1155,7 @@ public class Table implements TableContext {
         final JPanel bar = new JPanel(new GridLayout(1, 2, 6, 0));
         bar.setOpaque(false);
 
-        tabBtnMoves    = makeTabButton("Moves",    true);
+        tabBtnMoves = makeTabButton("Moves", true);
         tabBtnAnalysis = makeTabButton("Analysis", false);
 
         tabBtnMoves.addActionListener(e -> {

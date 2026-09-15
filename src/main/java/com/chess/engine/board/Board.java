@@ -54,7 +54,9 @@ public class Board {
         return tiles;
     }
 
-    /** Collect active pieces for one alliance directly from the builder's piece array. */
+    /**
+     * Collect active pieces for one alliance directly from the builder's piece array.
+     */
     private static Collection<Piece> collectPieces(final Builder builder, final Alliance alliance) {
         final List<Piece> pieces = new ArrayList<>(16);
         for (final Piece p : builder.boardConfig) {
@@ -183,8 +185,9 @@ public class Board {
 
         // ── Field 5: half-move clock ──────────────────────────────────
         if (fields.length >= 5) {
-            try { builder.setHalfMoveClock(Integer.parseInt(fields[4])); }
-            catch (NumberFormatException ignored) { /* leave at 0 */ }
+            try {
+                builder.setHalfMoveClock(Integer.parseInt(fields[4]));
+            } catch (NumberFormatException ignored) { /* leave at 0 */ }
         }
 
         // ── Field 4: en-passant target square ─────────────────────────
