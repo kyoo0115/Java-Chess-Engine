@@ -11,7 +11,7 @@ import java.io.IOException;
  * Engine-vs-Engine match runner using Stockfish at two different move-time settings.
  *
  * <p>Plays two Stockfish configurations against each other over a configurable number
- * of games, alternating colours, and computes:
+ * of games, alternating colors, and computes:
  * <ul>
  *   <li>Win / Draw / Loss counts for Engine A</li>
  *   <li>Score percentage</li>

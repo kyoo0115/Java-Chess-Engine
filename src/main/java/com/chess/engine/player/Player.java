@@ -7,7 +7,7 @@ import com.chess.engine.pieces.King;
 import com.chess.engine.pieces.Piece;
 import com.chess.engine.pieces.Rook;
 import com.chess.engine.util.BoardUtils;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.Collection;
@@ -15,9 +15,15 @@ import java.util.List;
 
 public abstract class Player {
 
+    // Static offset arrays — defined once, shared across all attack-detection calls.
+    private static final int[] KNIGHT_OFFSETS = {-17, -15, -10, -6, 6, 10, 15, 17};
+    private static final int[] KING_OFFSETS   = {-9, -8, -7, -1, 1, 7, 8, 9};
+    private static final int[] DIAG_DIRS      = {-9, -7, 7, 9};
+    private static final int[] STRAIGHT_DIRS  = {-1, 1, -8, 8};
+
     protected final Board board;
     protected final King playerKing;
-    protected final Collection<Move> legalMoves;
+    protected final ImmutableSet<Move> legalMoves;
     private final boolean inCheck;
     private final boolean castled;
 
@@ -26,7 +32,7 @@ public abstract class Player {
         this.board = board;
         this.playerKing = findKing();
         this.inCheck = isSquareAttackedBy(board, playerKing.getPiecePosition(), opponentAlliance);
-        this.legalMoves = ImmutableList.copyOf(Iterables.concat(legalMoves, calculateKingCastles(legalMoves, opponentMoves)));
+        this.legalMoves = ImmutableSet.copyOf(Iterables.concat(legalMoves, calculateKingCastles(legalMoves, opponentMoves)));
         this.castled = castled;
     }
 
@@ -61,7 +67,6 @@ public abstract class Player {
                 return rightAttack == square && !isRightColumnExclusion(piece.getPieceAlliance(), pos);
             }
             case KNIGHT -> {
-                final int[] KNIGHT_OFFSETS = {-17, -15, -10, -6, 6, 10, 15, 17};
                 for (final int offset : KNIGHT_OFFSETS) {
                     final int dest = pos + offset;
                     if (dest == square && BoardUtils.isValidTileCoordinate(dest)
@@ -79,7 +84,6 @@ public abstract class Player {
                 return isDiagonalAttack(board, pos, square) || isStraightAttack(board, pos, square);
             }
             case KING -> {
-                final int[] KING_OFFSETS = {-9, -8, -7, -1, 1, 7, 8, 9};
                 for (final int offset : KING_OFFSETS) {
                     final int dest = pos + offset;
                     if (dest == square && BoardUtils.isValidTileCoordinate(dest)
@@ -125,7 +129,7 @@ public abstract class Player {
      * Ray-trace along diagonals from {@code from} to see if {@code target} is attacked.
      */
     private static boolean isDiagonalAttack(final Board board, final int from, final int target) {
-        for (final int dir : new int[]{-9, -7, 7, 9}) {
+        for (final int dir : DIAG_DIRS) {
             int sq = from;
             while (true) {
                 if (BoardUtils.isFirstColumn(sq) && (dir == -9 || dir == 7)) break;
@@ -143,22 +147,11 @@ public abstract class Player {
      * Ray-trace along ranks/files from {@code from} to see if {@code target} is attacked.
      */
     private static boolean isStraightAttack(final Board board, final int from, final int target) {
-        // Rank (horizontal)
-        for (final int dir : new int[]{-1, 1}) {
+        for (final int dir : STRAIGHT_DIRS) {
             int sq = from;
             while (true) {
                 if (dir == -1 && BoardUtils.isFirstColumn(sq)) break;
-                if (dir == 1 && BoardUtils.isEighthColumn(sq)) break;
-                sq += dir;
-                if (!BoardUtils.isValidTileCoordinate(sq)) break;
-                if (sq == target) return true;
-                if (board.getTile(sq).isTileOccupied()) break;
-            }
-        }
-        // File (vertical)
-        for (final int dir : new int[]{-8, 8}) {
-            int sq = from;
-            while (true) {
+                if (dir ==  1 && BoardUtils.isEighthColumn(sq)) break;
                 sq += dir;
                 if (!BoardUtils.isValidTileCoordinate(sq)) break;
                 if (sq == target) return true;
@@ -177,11 +170,10 @@ public abstract class Player {
     }
 
     private King findKing() {
-        return getActivePieces().stream()
-                .filter(piece -> piece.getPieceType().isKing())
-                .map(piece -> (King) piece)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Player must have a king!"));
+        for (final Piece piece : getActivePieces()) {
+            if (piece.getPieceType().isKing()) return (King) piece;
+        }
+        throw new IllegalStateException("Player must have a king!");
     }
 
     public boolean isMoveLegal(Move move) {

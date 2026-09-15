@@ -16,6 +16,7 @@ public final class Pawn extends Piece {
     private static final int MOVE_TWO_TILES = 16;
     private static final int ATTACK_LEFT = 7;
     private static final int ATTACK_RIGHT = 9;
+    private static final int[] CANDIDATE_OFFSETS = {MOVE_ONE_TILE, MOVE_TWO_TILES, ATTACK_LEFT, ATTACK_RIGHT};
 
     public Pawn(final int piecePosition, final Alliance pieceAlliance) {
         super(PieceType.PAWN, piecePosition, pieceAlliance, true);
@@ -30,7 +31,7 @@ public final class Pawn extends Piece {
 
         final List<Move> legalMoves = new ArrayList<>();
 
-        for (final int candidateOffset : new int[]{MOVE_ONE_TILE, MOVE_TWO_TILES, ATTACK_LEFT, ATTACK_RIGHT}) {
+        for (final int candidateOffset : CANDIDATE_OFFSETS) {
 
             int candidateDestinationCoordinate = this.piecePosition + (this.getPieceAlliance().getDirection() * candidateOffset);
 

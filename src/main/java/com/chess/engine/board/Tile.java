@@ -1,34 +1,29 @@
 package com.chess.engine.board;
 
 import com.chess.engine.pieces.Piece;
-import com.google.common.collect.ImmutableMap;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public abstract class Tile {
 
     public static final int NUM_TILES = 64;
-    private static final Map<Integer, EmptyTile> EMPTY_TILES = initEmptyTiles();
+    // Plain array: direct index lookup, no boxing, no hashing.
+    private static final EmptyTile[] EMPTY_TILES = initEmptyTiles();
     protected final int tileCoordinate;
 
     protected Tile(int tileCoordinate) {
         this.tileCoordinate = tileCoordinate;
     }
 
-    private static Map<Integer, EmptyTile> initEmptyTiles() {
-        final Map<Integer, EmptyTile> tiles = new HashMap<>(NUM_TILES);
-
+    private static EmptyTile[] initEmptyTiles() {
+        final EmptyTile[] tiles = new EmptyTile[NUM_TILES];
         for (int coordinate = 0; coordinate < NUM_TILES; coordinate++) {
-            tiles.put(coordinate, new EmptyTile(coordinate));
+            tiles[coordinate] = new EmptyTile(coordinate);
         }
-
-        return ImmutableMap.copyOf(tiles);
+        return tiles;
     }
 
     public static Tile createTile(final int tileCoordinate, final Piece piece) {
         return piece == null
-                ? EMPTY_TILES.get(tileCoordinate)
+                ? EMPTY_TILES[tileCoordinate]
                 : new OccupiedTile(tileCoordinate, piece);
     }
 

@@ -45,7 +45,7 @@ public class Board {
         final Tile[] tiles = new Tile[BoardUtils.NUM_TILES];
 
         for (int i = 0; i < BoardUtils.NUM_TILES; i++) {
-            tiles[i] = Tile.createTile(i, builder.boardConfig.get(i));
+            tiles[i] = Tile.createTile(i, builder.boardConfig[i]);
         }
 
         return ImmutableList.copyOf(tiles);
@@ -187,7 +187,7 @@ public class Board {
                 // ep target is rank 3 → black pawn just moved to rank 4 (square row 4)
                 pawnSquare = 4 * 8 + epFile;
             }
-            final Piece pawnOnBoard = builder.boardConfig.get(pawnSquare);
+            final Piece pawnOnBoard = builder.boardConfig[pawnSquare];
             if (pawnOnBoard instanceof Pawn) {
                 builder.setEnPassantPawn((Pawn) pawnOnBoard);
             }
@@ -292,14 +292,11 @@ public class Board {
     }
 
     private Collection<Move> calculateLegalMoves(final Collection<Piece> pieces) {
-
-        final List<Move> legalMoves = new ArrayList<>();
-
+        final ImmutableList.Builder<Move> builder = ImmutableList.builder();
         for (final Piece piece : pieces) {
-            legalMoves.addAll(piece.calculateLegalMoves(this));
+            builder.addAll(piece.calculateLegalMoves(this));
         }
-
-        return ImmutableList.copyOf(legalMoves);
+        return builder.build();
     }
 
     private Collection<Piece> calculateActivePieces(final List<Tile> gameBoard, final Alliance alliance) {
@@ -324,17 +321,15 @@ public class Board {
 
     public static class Builder {
 
-        private final Map<Integer, Piece> boardConfig;
+        // Fixed-size array: index = square (0-63), value = piece or null.
+        // Avoids Integer boxing and HashMap hashing on every setPiece/get call.
+        final Piece[] boardConfig = new Piece[BoardUtils.NUM_TILES];
         Pawn enPassantPawn;
         private Alliance nextMoveMaker;
         Alliance castledAlliance; // set by CastleMove.execute() to mark which side just castled
 
-        public Builder() {
-            this.boardConfig = new HashMap<>();
-        }
-
         public Builder setPiece(final Piece piece) {
-            this.boardConfig.put(piece.getPiecePosition(), piece);
+            this.boardConfig[piece.getPiecePosition()] = piece;
             return this;
         }
 
