@@ -270,6 +270,7 @@ public class Minimax implements MoveStrategy {
             killers[i][0] = null;
             killers[i][1] = null;
         }
+        for (int[] row : historyTable) java.util.Arrays.fill(row, 0);
 
         final long startTime = System.currentTimeMillis();
         final boolean isWhite = board.getCurrentPlayer().getAlliance().isWhite();
@@ -411,6 +412,7 @@ public class Minimax implements MoveStrategy {
             if (lowestSeenValue <= alpha) {
                 // Alpha cut-off in a min node — score is an upper bound
                 storeKiller(ply, move);
+                storeHistory(move, depth);
                 transpositionTable.put(hash, new TtEntry(lowestSeenValue, depth, TtEntry.UPPER_BOUND));
                 return lowestSeenValue;
             }
@@ -474,6 +476,7 @@ public class Minimax implements MoveStrategy {
             }
             if (highestSeenValue >= beta) {
                 storeKiller(ply, move);
+                storeHistory(move, depth);
                 transpositionTable.put(hash, new TtEntry(highestSeenValue, depth, TtEntry.LOWER_BOUND));
                 return highestSeenValue;
             }
@@ -576,6 +579,10 @@ public class Minimax implements MoveStrategy {
         captures.sort(Comparator.comparingInt(m ->
                 -(m.getAttackedPiece().getPieceValue() * 10 - m.getMovedPiece().getPieceValue())));
 
+        // Sort quiet moves by history score descending (secondary ordering after killers)
+        quiet.sort(Comparator.comparingInt((Move m) ->
+                -historyTable[m.getCurrentCoordinate()][m.getDestinationCoordinate()]));
+
         final List<Move> ordered = new ArrayList<>(captures.size() + killerList.size() + quiet.size());
         ordered.addAll(captures);
         ordered.addAll(killerList);
@@ -589,6 +596,11 @@ public class Minimax implements MoveStrategy {
             killers[ply][1] = killers[ply][0];
             killers[ply][0] = move;
         }
+    }
+
+    private void storeHistory(final Move move, final int depth) {
+        if (move.isAttack()) return; // history heuristic is for quiet moves only
+        historyTable[move.getCurrentCoordinate()][move.getDestinationCoordinate()] += depth * depth;
     }
 
     // ─────────────────────────────────────────────────────────────────

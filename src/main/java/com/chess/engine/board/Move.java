@@ -264,6 +264,11 @@ public abstract class Move {
             return decorateMove;
         }
 
+        /** Returns the piece this pawn promotes to (Queen if not explicitly set). */
+        public Piece getPromotionPiece() {
+            return promotionChoice != null ? promotionChoice : promotedPawn.getPromotionPiece();
+        }
+
         @Override
         public int hashCode() {
             return decorateMove.hashCode() + (31 * promotedPawn.hashCode());
