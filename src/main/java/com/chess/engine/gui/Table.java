@@ -8,6 +8,7 @@ import com.chess.engine.board.MoveLog;
 import com.chess.engine.board.Tile;
 import com.chess.engine.pieces.*;
 import com.chess.engine.player.MoveTransition;
+import com.chess.engine.player.ai.AnalysisResult;
 import com.chess.engine.player.ai.StockfishEngine;
 
 import javax.imageio.ImageIO;
@@ -47,6 +48,11 @@ public class Table implements TableContext {
     private final BoardContainer boardContainer;
     private final MoveLog moveLog;
     private final GameHistoryPanel historyAndControlsPanel;
+    private final AnalysisPanel analysisPanel;
+    private final JPanel rightTabContent;
+    private CardLayout rightTabCards;
+    private JButton tabBtnMoves;
+    private JButton tabBtnAnalysis;
     private final GameSetup gameSetup;
     private final ClockPanel clockPanel;
     private final LeftSidebar leftSidebar;
@@ -65,6 +71,8 @@ public class Table implements TableContext {
     private boolean engineVsEnginePaused = false;
     private StockfishEngine stockfishEngine = null;
     private AIThinkTank currentThinkTank = null;
+    private GameAnalyser currentAnalyser = null;
+    private LiveEvalWorker currentLiveEvalWorker = null;
     private Tile sourceTile;
     private Piece humanMovedPiece;
     private BufferedImage dragImage;
@@ -157,12 +165,7 @@ public class Table implements TableContext {
 
         leftSidebar = new LeftSidebar(
                 this::resetGame,
-                () -> {
-                    // Analysis setup
-                    gameSetup.setWhitePlayerType(PlayerType.HUMAN);
-                    gameSetup.setBlackPlayerType(PlayerType.HUMAN);
-                    setupAfterGameSetup();
-                },
+                this::startGameAnalysis,
                 () -> {
                     JOptionPane.showMessageDialog(gameFrame,
                             "Learn Chess: Play moves, study notation, and test tactics against the engine!",
@@ -192,13 +195,28 @@ public class Table implements TableContext {
                 }
         );
 
-        // Right side: Clock cards (top) + History & Controls (center/bottom)
-        final JPanel rightSidebar = new JPanel(new BorderLayout(0, 10));
+        analysisPanel = new AnalysisPanel();
+
+        // ── Tab switcher: "Moves" | "Analysis" ───────────────────────────────
+        rightTabCards = new CardLayout();
+        rightTabContent = new JPanel(rightTabCards);
+        rightTabContent.setOpaque(false);
+        rightTabContent.add(historyAndControlsPanel, "HISTORY");
+        rightTabContent.add(analysisPanel, "ANALYSIS");
+
+        final JPanel tabBar = buildRightTabBar(rightTabCards, rightTabContent);
+
+        // Right side: Clock (top) + tab bar + tab content (center)
+        final JPanel rightSidebar = new JPanel(new BorderLayout(0, 6));
         rightSidebar.setOpaque(false);
         rightSidebar.setPreferredSize(new Dimension(270, 0));
         rightSidebar.setBorder(new EmptyBorder(14, 8, 14, 18));
         rightSidebar.add(clockPanel, BorderLayout.NORTH);
-        rightSidebar.add(historyAndControlsPanel, BorderLayout.CENTER);
+        final JPanel tabStack = new JPanel(new BorderLayout(0, 4));
+        tabStack.setOpaque(false);
+        tabStack.add(tabBar, BorderLayout.NORTH);
+        tabStack.add(rightTabContent, BorderLayout.CENTER);
+        rightSidebar.add(tabStack, BorderLayout.CENTER);
 
         // Center Chessboard wrapper
         final JPanel boardCenterWrapper = new JPanel(new BorderLayout());
@@ -510,6 +528,13 @@ public class Table implements TableContext {
         menu.add(saveImage);
 
         menu.addSeparator();
+
+        final JMenuItem analyse = new JMenuItem("Analyse Game");
+        analyse.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F2, 0));
+        analyse.addActionListener(e -> startGameAnalysis());
+        menu.add(analyse);
+
+        menu.addSeparator();
         final JMenuItem exit = new JMenuItem("Exit");
         exit.addActionListener(e -> System.exit(0));
         menu.add(exit);
@@ -771,6 +796,8 @@ public class Table implements TableContext {
         if (!gameOver) clockPanel.onMoveMade(chessBoard.getCurrentPlayer().getAlliance());
         if (!gameOver && gameSetup.isAIPlayer(chessBoard.getCurrentPlayer()) && !engineVsEnginePaused)
             fireAIThinkTank();
+        // Live eval bar — kick off a quick background eval after every move
+        fireLiveEval();
     }
 
     private void checkGameOver() {
@@ -1048,6 +1075,17 @@ public class Table implements TableContext {
             stockfishEngine.close();
             stockfishEngine = null;
         }
+        // Cancel any running analysis
+        if (currentAnalyser != null) {
+            currentAnalyser.cancel(true);
+            currentAnalyser = null;
+        }
+        if (currentLiveEvalWorker != null) {
+            currentLiveEvalWorker.cancel(true);
+            currentLiveEvalWorker = null;
+        }
+        // Hide the eval bar when engine closes
+        boardContainer.setLiveEval(Integer.MIN_VALUE);
         // A Swing Timer can simply be stopped at any time — no interrupt races to worry about.
         if (animTimer != null) {
             animTimer.stop();
@@ -1055,6 +1093,149 @@ public class Table implements TableContext {
         }
         animPiece = null;
         gameFrame.setCursor(Cursor.getDefaultCursor());
+    }
+
+    // ── Analysis ──────────────────────────────────────────────────────
+
+    /**
+     * Launches a full game analysis in the background. Results stream into
+     * {@link #analysisPanel} one move at a time. Cancels any previous analysis.
+     */
+    private void startGameAnalysis() {
+        System.out.println("startGameAnalysis: moveLog.size()=" + moveLog.size());
+        if (moveLog.size() == 0) {
+            JOptionPane.showMessageDialog(gameFrame,
+                    "No moves to analyse yet.", "Analyse Game", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        System.out.println("startGameAnalysis: checking Stockfish availability...");
+        if (!StockfishEngine.isAvailable()) {
+            System.out.println("startGameAnalysis: Stockfish NOT available");
+            JOptionPane.showMessageDialog(gameFrame,
+                    "Stockfish is not installed. Install it to enable analysis.",
+                    "Engine Not Found", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        System.out.println("startGameAnalysis: Stockfish available, launching analyser");
+        // Cancel any previous full analysis
+        if (currentAnalyser != null) {
+            currentAnalyser.cancel(true);
+            currentAnalyser = null;
+        }
+        analysisPanel.clear();
+        analysisPanel.setProgress("Starting analysis…");
+        showAnalysisTab();
+
+        currentAnalyser = new GameAnalyser(
+                moveLog,
+                analysisPanel,
+                cp -> boardContainer.setLiveEval(cp),
+                null);
+        currentAnalyser.execute();
+    }
+
+    /**
+     * Fires a quick (200 ms) Stockfish evaluation after each move to keep the
+     * live eval bar updated. Cancels any previous in-flight live-eval query.
+     */
+    private void fireLiveEval() {
+        if (!StockfishEngine.isAvailable()) return;
+        if (currentLiveEvalWorker != null) {
+            currentLiveEvalWorker.cancel(true);
+            currentLiveEvalWorker = null;
+        }
+        final String fen = chessBoard.toFEN();
+        currentLiveEvalWorker = new LiveEvalWorker(fen);
+        currentLiveEvalWorker.execute();
+    }
+
+    // ── Tab bar helper ────────────────────────────────────────────────
+
+    /**
+     * Builds the two-button tab bar ("Moves" / "Analysis") that sits above
+     * the CardLayout right panel.
+     */
+    private JPanel buildRightTabBar(final CardLayout cards, final JPanel container) {
+        final JPanel bar = new JPanel(new GridLayout(1, 2, 6, 0));
+        bar.setOpaque(false);
+
+        tabBtnMoves    = makeTabButton("Moves",    true);
+        tabBtnAnalysis = makeTabButton("Analysis", false);
+
+        tabBtnMoves.addActionListener(e -> {
+            cards.show(container, "HISTORY");
+            tabBtnMoves.putClientProperty("selected", true);
+            tabBtnAnalysis.putClientProperty("selected", false);
+            tabBtnMoves.setForeground(Color.WHITE);
+            tabBtnAnalysis.setForeground(UITheme.getTextSecondary());
+            tabBtnMoves.repaint();
+            tabBtnAnalysis.repaint();
+        });
+        tabBtnAnalysis.addActionListener(e -> {
+            cards.show(container, "ANALYSIS");
+            tabBtnMoves.putClientProperty("selected", false);
+            tabBtnAnalysis.putClientProperty("selected", true);
+            tabBtnMoves.setForeground(UITheme.getTextSecondary());
+            tabBtnAnalysis.setForeground(Color.WHITE);
+            tabBtnMoves.repaint();
+            tabBtnAnalysis.repaint();
+        });
+
+        bar.add(tabBtnMoves);
+        bar.add(tabBtnAnalysis);
+        bar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
+        bar.setPreferredSize(new Dimension(0, 34));
+        return bar;
+    }
+
+    private void showAnalysisTab() {
+        rightTabCards.show(rightTabContent, "ANALYSIS");
+        tabBtnMoves.putClientProperty("selected", false);
+        tabBtnAnalysis.putClientProperty("selected", true);
+        tabBtnMoves.setForeground(UITheme.getTextSecondary());
+        tabBtnAnalysis.setForeground(Color.WHITE);
+        tabBtnMoves.repaint();
+        tabBtnAnalysis.repaint();
+    }
+
+    private JButton makeTabButton(final String label, final boolean initiallySelected) {
+        final JButton btn = new JButton(label) {
+            @Override
+            protected void paintComponent(final Graphics g) {
+                final boolean sel = Boolean.TRUE.equals(getClientProperty("selected"));
+                final Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(sel ? UITheme.getAccentBlue() : UITheme.getControlBtnBg());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                if (!sel) {
+                    g2.setColor(UITheme.getControlBtnBorder());
+                    g2.setStroke(new BasicStroke(1f));
+                    g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+                }
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.putClientProperty("selected", initiallySelected);
+        btn.setFont(new Font("SansSerif", Font.BOLD, 12));
+        btn.setForeground(initiallySelected ? Color.WHITE : UITheme.getTextSecondary());
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.setPreferredSize(new Dimension(0, 34));
+
+        // Update foreground on selection toggle
+        btn.addActionListener(e -> {
+            final boolean sel = Boolean.TRUE.equals(btn.getClientProperty("selected"));
+            btn.setForeground(sel ? Color.WHITE : UITheme.getTextSecondary());
+        });
+        UITheme.addThemeListener(() -> {
+            final boolean sel = Boolean.TRUE.equals(btn.getClientProperty("selected"));
+            btn.setForeground(sel ? Color.WHITE : UITheme.getTextSecondary());
+            btn.repaint();
+        });
+        return btn;
     }
 
     // ── AI worker ─────────────────────────────────────────────────────
@@ -1161,6 +1342,46 @@ public class Table implements TableContext {
             } catch (InterruptedException | ExecutionException ex) {
                 ex.printStackTrace();
                 afterMoveRefresh();
+            }
+        }
+    }
+
+    // ── Live eval worker ──────────────────────────────────────────────
+
+    /**
+     * Fires a quick Stockfish evaluation of a single FEN position.
+     * Used to update the live eval bar after every move.
+     */
+    private class LiveEvalWorker extends SwingWorker<AnalysisResult, Void> {
+        private static final int LIVE_MOVETIME_MS = 200;
+        private final String fen;
+
+        LiveEvalWorker(final String fen) {
+            this.fen = fen;
+        }
+
+        @Override
+        protected AnalysisResult doInBackground() {
+            try {
+                // Reuse the AI engine if available; create a fresh one-shot engine otherwise
+                if (stockfishEngine != null) {
+                    return stockfishEngine.analysePosition(fen, LIVE_MOVETIME_MS);
+                }
+                try (final StockfishEngine sf = new StockfishEngine(LIVE_MOVETIME_MS)) {
+                    return sf.analysePosition(fen, LIVE_MOVETIME_MS);
+                }
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        @Override
+        protected void done() {
+            if (isCancelled()) return;
+            try {
+                final AnalysisResult r = get();
+                if (r != null) boardContainer.setLiveEval(r.scoreWhiteCp());
+            } catch (Exception ignored) {
             }
         }
     }

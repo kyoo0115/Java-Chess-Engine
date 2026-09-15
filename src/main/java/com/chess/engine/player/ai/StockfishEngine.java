@@ -6,6 +6,8 @@ import com.chess.engine.pieces.Piece;
 
 import java.io.*;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Chess engine backed by a local Stockfish process via the UCI protocol.
@@ -46,6 +48,13 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
             "/usr/local/bin/stockfish",
             "/opt/homebrew/bin/stockfish",
     };
+    /** Pre-compiled pattern for parsing "info … score cp X …" lines. */
+    private static final Pattern SCORE_CP   = Pattern.compile("\\bscore cp (-?\\d+)\\b");
+    /** Pre-compiled pattern for parsing "info … score mate X …" lines. */
+    private static final Pattern SCORE_MATE = Pattern.compile("\\bscore mate (-?\\d+)\\b");
+    /** Pre-compiled pattern for extracting the pv (principal variation) first move. */
+    private static final Pattern PV_MOVE    = Pattern.compile("\\bpv (\\S+)");
+
     private final int moveTimeMs;
     private final Process process;
     private final BufferedReader reader;
@@ -211,6 +220,84 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         } catch (IOException e) {
             return false;
         }
+    }
+
+    // ── Analysis ──────────────────────────────────────────────────────────────
+
+    /**
+     * Analyses a position given as a FEN string and returns Stockfish's evaluation
+     * and best-move suggestion.
+     *
+     * <p>This method blocks until Stockfish has finished thinking (for {@code moveTimeMs}).
+     * Call only from a background thread (e.g. a {@code SwingWorker.doInBackground()}).
+     *
+     * @param fen        the position to analyse in FEN notation
+     * @param moveTimeMs how long (ms) Stockfish may think
+     * @return analysis result, or {@code null} if closed / engine error
+     */
+    public AnalysisResult analysePosition(final String fen, final int moveTimeMs) {
+        if (closed) return null;
+        try {
+            // Determine side to move from FEN field 2 ("w" or "b")
+            // Stockfish reports score from the side-to-move's perspective, so we
+            // negate when it's Black's turn to get a consistent White-relative value.
+            final String[] fenParts = fen.split("\\s+");
+            final boolean blackToMove = fenParts.length >= 2 && fenParts[1].equals("b");
+
+            send("position fen " + fen);
+            send("go movetime " + moveTimeMs);
+            return readAnalysisResult(blackToMove);
+        } catch (IOException e) {
+            if (!closed) System.err.println("StockfishEngine analysis error: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Reads Stockfish output lines until the {@code bestmove} line, collecting
+     * the last seen score and pv move from the {@code info} lines.
+     */
+    private AnalysisResult readAnalysisResult(final boolean blackToMove) throws IOException {
+        int lastScoreCp   = 0;
+        boolean hasMate   = false;
+        int lastMateIn    = 0;
+        String lastPvMove = null;
+
+        String line;
+        while ((line = reader.readLine()) != null) {
+            if (line.startsWith("bestmove")) {
+                // "bestmove e2e4 ponder e7e5" — or "bestmove (none)"
+                final String[] parts = line.split("\\s+");
+                final String bm = (parts.length >= 2 && !parts[1].equals("(none)")) ? parts[1] : null;
+                // Prefer the pv move from info lines; fall back to bestmove token
+                final String best = (lastPvMove != null) ? lastPvMove : bm;
+                if (hasMate) {
+                    // mateIn from Stockfish is side-to-move relative; negate for Black
+                    final int mateInWhiteRelative = blackToMove ? -lastMateIn : lastMateIn;
+                    return AnalysisResult.fromMate(mateInWhiteRelative, best);
+                }
+                // Negate score when Black is to move to get White-relative centipawns
+                final int whiteRelativeCp = blackToMove ? -lastScoreCp : lastScoreCp;
+                return new AnalysisResult(whiteRelativeCp, best);
+            }
+            // Only parse "info depth … seldepth … score …" lines (not "info string …")
+            if (line.startsWith("info") && !line.contains("info string")) {
+                final Matcher mateMatcher = SCORE_MATE.matcher(line);
+                if (mateMatcher.find()) {
+                    hasMate   = true;
+                    lastMateIn = Integer.parseInt(mateMatcher.group(1));
+                } else {
+                    final Matcher cpMatcher = SCORE_CP.matcher(line);
+                    if (cpMatcher.find()) {
+                        hasMate    = false;
+                        lastScoreCp = Integer.parseInt(cpMatcher.group(1));
+                    }
+                }
+                final Matcher pvMatcher = PV_MOVE.matcher(line);
+                if (pvMatcher.find()) lastPvMove = pvMatcher.group(1);
+            }
+        }
+        return null; // stream closed
     }
 
     // ── MoveStrategy ──────────────────────────────────────────────────────────
