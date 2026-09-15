@@ -234,7 +234,6 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
     @Override
     public void close() {
         closed = true;
-        System.out.println("StockfishEngine closing  (pid=" + process.pid() + ")");
         try {
             send("quit");
         } catch (IOException ignored) {
@@ -245,7 +244,6 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        System.out.println("StockfishEngine closed   (alive=" + process.isAlive() + ")");
     }
 
     // ── Binary discovery ──────────────────────────────────────────────────────
