@@ -461,7 +461,7 @@ public class Table implements TableContext {
 
         final JMenuItem save = new JMenuItem("Save Game…");
         save.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK));
-        save.addActionListener(e -> PgnUtils.saveGame(gameFrame, moveLog, gameSetup));
+        save.addActionListener(e -> PgnUtils.saveGame(gameFrame, chessBoard, moveLog, gameSetup));
         menu.add(save);
 
         final JMenuItem load = new JMenuItem("Load Game…");

@@ -54,6 +54,8 @@ public final class PgnUtils {
                 if (i % 2 == 0) sb.append(i / 2 + 1).append(". ");
                 sb.append(moves.get(i).toString()).append(' ');
             }
+            // Append the result token after the move list (required by the PGN spec)
+            if (!result.equals("*")) sb.append(result);
             final String text = sb.toString().trim();
             int pos = 0;
             while (pos < text.length()) {
@@ -105,9 +107,20 @@ public final class PgnUtils {
                         break;
                     }
                 }
-                if (matched == null) break;
+                if (matched == null) {
+                    // Could not match token — warn the user about partial load
+                    JOptionPane.showMessageDialog(parent,
+                            "Could not parse move token \"" + token + "\" — the game was loaded up to move " + loaded.size() + ".",
+                            "Partial Load", JOptionPane.WARNING_MESSAGE);
+                    break;
+                }
                 final MoveTransition t = replayBoard.getCurrentPlayer().makeMove(matched);
-                if (!t.getMoveStatus().isDone()) break;
+                if (!t.getMoveStatus().isDone()) {
+                    JOptionPane.showMessageDialog(parent,
+                            "Illegal move \"" + token + "\" at move " + (loaded.size() + 1) + " — the game was loaded up to that point.",
+                            "Partial Load", JOptionPane.WARNING_MESSAGE);
+                    break;
+                }
                 replayBoard = t.getTransitionBoard();
                 loaded.add(matched);
             }

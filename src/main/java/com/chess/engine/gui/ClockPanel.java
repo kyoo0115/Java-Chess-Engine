@@ -22,14 +22,15 @@ public class ClockPanel extends JPanel {
     private final Runnable onBlackTimeout;
     private final Timer ticker;
 
-    private int whiteSeconds = 600;
-    private int blackSeconds = 600;
+    /** Remaining time in milliseconds for each player. */
+    private long whiteMs = 600_000;
+    private long blackMs = 600_000;
     private boolean whiteActive = false;
     private boolean enabled = true;
     /** Wall-clock time (ms) at which the current player's turn started, or -1 if not running. */
     private long turnStartMs = -1;
-    /** Seconds remaining for the active player at the moment their turn started. */
-    private int activeSecondsAtTurnStart = 0;
+    /** Milliseconds remaining for the active player at the moment their turn started. */
+    private long activeMsAtTurnStart = 0;
 
     public ClockPanel(final Runnable onWhiteTimeout, final Runnable onBlackTimeout) {
         super(new GridLayout(2, 1, 0, 10));
@@ -56,17 +57,26 @@ public class ClockPanel extends JPanel {
         add(blackCard);
         add(whiteCard);
 
-        ticker = new Timer(1000, e -> tick());
-        ticker.setInitialDelay(1000);
+        ticker = new Timer(100, e -> tick());
+        ticker.setInitialDelay(100);
 
         UITheme.addThemeListener(this::refreshStyles);
         refreshStyles();
     }
 
-    private static String formatTime(final int totalSeconds) {
-        final int m = totalSeconds / 60;
-        final int s = totalSeconds % 60;
-        return String.format("%02d:%02d", m, s);
+    /**
+     * Formats milliseconds as {@code mm:ss} when ≥ 1 minute, or {@code ss.d} when under 1 minute.
+     */
+    private static String formatTime(final long totalMs) {
+        if (totalMs <= 0) return "00:00.0";
+        final long minutes = totalMs / 60_000;
+        if (minutes >= 1) {
+            final long secs = (totalMs % 60_000) / 1000;
+            return String.format("%02d:%02d", minutes, secs);
+        }
+        final long secs = totalMs / 1000;
+        final long tenths = (totalMs % 1000) / 100;
+        return String.format("%02d.%d", secs, tenths);
     }
 
     private JLabel makeNameLabel(String name) {
@@ -176,12 +186,12 @@ public class ClockPanel extends JPanel {
     public void configure(final boolean on, final int minutes) {
         ticker.stop();
         enabled = on;
-        final int secs = minutes * 60;
-        whiteSeconds = secs;
-        blackSeconds = secs;
+        final long ms = (long) minutes * 60_000;
+        whiteMs = ms;
+        blackMs = ms;
         whiteActive = false;
         turnStartMs = -1;
-        activeSecondsAtTurnStart = 0;
+        activeMsAtTurnStart = 0;
         whiteTakenPanel.clear();
         blackTakenPanel.clear();
         updateLabels();
@@ -197,7 +207,7 @@ public class ClockPanel extends JPanel {
         // Commit any elapsed time from the previous turn before switching sides
         commitElapsed();
         whiteActive = nowToMove.isWhite();
-        activeSecondsAtTurnStart = whiteActive ? whiteSeconds : blackSeconds;
+        activeMsAtTurnStart = whiteActive ? whiteMs : blackMs;
         turnStartMs = System.currentTimeMillis();
         if (!ticker.isRunning()) ticker.start();
         updateLabels();
@@ -217,7 +227,7 @@ public class ClockPanel extends JPanel {
             turnStartMs = -1;
             ticker.stop();
         } else if (enabled) {
-            activeSecondsAtTurnStart = whiteActive ? whiteSeconds : blackSeconds;
+            activeMsAtTurnStart = whiteActive ? whiteMs : blackMs;
             turnStartMs = System.currentTimeMillis();
             ticker.start();
         }
@@ -228,14 +238,14 @@ public class ClockPanel extends JPanel {
         return ticker.isRunning();
     }
 
-    /** Saves elapsed wall-clock seconds back into the active player's counter. */
+    /** Saves elapsed wall-clock time back into the active player's counter. */
     private void commitElapsed() {
         if (turnStartMs < 0) return;
-        final int elapsed = (int) ((System.currentTimeMillis() - turnStartMs) / 1000);
+        final long elapsed = System.currentTimeMillis() - turnStartMs;
         if (whiteActive) {
-            whiteSeconds = Math.max(0, activeSecondsAtTurnStart - elapsed);
+            whiteMs = Math.max(0, activeMsAtTurnStart - elapsed);
         } else {
-            blackSeconds = Math.max(0, activeSecondsAtTurnStart - elapsed);
+            blackMs = Math.max(0, activeMsAtTurnStart - elapsed);
         }
     }
 
@@ -243,11 +253,11 @@ public class ClockPanel extends JPanel {
         if (turnStartMs < 0) return;
         commitElapsed();
         updateLabels();
-        if (whiteActive && whiteSeconds == 0) {
+        if (whiteActive && whiteMs == 0) {
             ticker.stop();
             turnStartMs = -1;
             onWhiteTimeout.run();
-        } else if (!whiteActive && blackSeconds == 0) {
+        } else if (!whiteActive && blackMs == 0) {
             ticker.stop();
             turnStartMs = -1;
             onBlackTimeout.run();
@@ -255,8 +265,8 @@ public class ClockPanel extends JPanel {
     }
 
     private void updateLabels() {
-        whiteTimeLabel.setText(formatTime(whiteSeconds));
-        blackTimeLabel.setText(formatTime(blackSeconds));
+        whiteTimeLabel.setText(formatTime(whiteMs));
+        blackTimeLabel.setText(formatTime(blackMs));
 
         boolean showWhiteDot = whiteActive && ticker.isRunning();
         boolean showBlackDot = !whiteActive && ticker.isRunning();
