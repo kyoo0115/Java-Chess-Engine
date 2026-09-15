@@ -30,8 +30,6 @@ public final class Bishop extends Piece {
                 || (BoardUtils.EIGHTH_COLUMN[position] && (offset == -7 || offset == 9));
     }
 
-    /* ==================== Column Exclusions ==================== */
-
     @Override
     public List<Move> calculateLegalMoves(final Board board) {
 
