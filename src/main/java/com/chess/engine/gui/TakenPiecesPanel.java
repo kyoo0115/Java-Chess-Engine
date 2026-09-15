@@ -37,7 +37,10 @@ public class TakenPiecesPanel extends JPanel {
                 final String key = a + s;
                 try (final java.io.InputStream is =
                              TakenPiecesPanel.class.getResourceAsStream("/images/" + key + ".png")) {
-                    if (is == null) { System.err.println("TakenPiecesPanel: missing image " + key + ".png"); continue; }
+                    if (is == null) {
+                        System.err.println("TakenPiecesPanel: missing image " + key + ".png");
+                        continue;
+                    }
                     cache.put(key, ImageIO.read(is));
                 } catch (final IOException e) {
                     System.err.println("TakenPiecesPanel: missing image " + key + ".png");
