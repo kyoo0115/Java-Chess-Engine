@@ -30,6 +30,7 @@ public abstract class Move {
 
     @Override
     public int hashCode() {
+        if (movedPiece == null) return destinationCoordinate;
         final int prime = 31;
         int result = 1;
         result = prime * result + this.destinationCoordinate;
@@ -48,7 +49,7 @@ public abstract class Move {
 
         return getCurrentCoordinate() == otherMove.getCurrentCoordinate() &&
                 getDestinationCoordinate() == otherMove.getDestinationCoordinate() &&
-                getMovedPiece() == otherMove.getMovedPiece();
+                getMovedPiece().equals(otherMove.getMovedPiece());
     }
 
     public Board getBoard() {
@@ -273,12 +274,20 @@ public abstract class Move {
 
         @Override
         public int hashCode() {
-            return decorateMove.hashCode() + (31 * promotedPawn.hashCode());
+            int result = decorateMove.hashCode() + (31 * promotedPawn.hashCode());
+            if (promotionChoice != null) result = 31 * result + promotionChoice.getPieceType().hashCode();
+            return result;
         }
 
         @Override
         public boolean equals(final Object other) {
-            return this == other || other instanceof PawnPromotion && super.equals(other);
+            if (this == other) return true;
+            if (!(other instanceof PawnPromotion otherPP)) return false;
+            if (!super.equals(otherPP)) return false;
+            // Two promotions are only equal if they promote to the same piece type
+            final Piece thisChoice = getPromotionPiece();
+            final Piece otherChoice = otherPP.getPromotionPiece();
+            return thisChoice.getPieceType() == otherChoice.getPieceType();
         }
 
         @Override
