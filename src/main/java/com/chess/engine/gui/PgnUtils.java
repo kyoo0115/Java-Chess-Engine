@@ -20,19 +20,32 @@ public final class PgnUtils {
     private PgnUtils() {
     }
 
-    public static void saveGame(final JFrame parent, final MoveLog moveLog, final GameSetup gameSetup) {
+    /** Derives the PGN result tag from the current board state. */
+    private static String gameResult(final Board board) {
+        if (board.getCurrentPlayer().isCheckMate()) {
+            // The player to move is mated — the opponent wins
+            return board.getCurrentPlayer().getAlliance().isWhite() ? "0-1" : "1-0";
+        }
+        if (board.getCurrentPlayer().isStaleMate()) {
+            return "1/2-1/2";
+        }
+        return "*";
+    }
+
+    public static void saveGame(final JFrame parent, final Board board, final MoveLog moveLog, final GameSetup gameSetup) {
         final JFileChooser fc = new JFileChooser();
         fc.setDialogTitle("Save Game as PGN");
         fc.setSelectedFile(new File("game.pgn"));
         if (fc.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION) return;
 
+        final String result = gameResult(board);
         final File file = fc.getSelectedFile();
         try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
             pw.println("[Event \"JChess Game\"]");
             pw.println("[Date \"" + LocalDate.now() + "\"]");
             pw.println("[White \"" + (gameSetup.getWhitePlayerType() == PlayerType.HUMAN ? "Human" : "Computer") + "\"]");
             pw.println("[Black \"" + (gameSetup.getBlackPlayerType() == PlayerType.HUMAN ? "Human" : "Computer") + "\"]");
-            pw.println("[Result \"*\"]");
+            pw.println("[Result \"" + result + "\"]");
             pw.println();
 
             final StringBuilder sb = new StringBuilder();
