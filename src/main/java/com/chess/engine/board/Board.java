@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 
 public class Board {
 
-    private final List<Tile> gameBoard;
+    private final Tile[] gameBoard;         // plain array — direct index, no boxing
     private final Collection<Piece> whitePieces;
     private final Collection<Piece> blackPieces;
 
@@ -25,13 +25,16 @@ public class Board {
     private final Player currentPlayer;
 
     private final Pawn enPassantPawn;
+    private final int halfMoveClock;        // tracked for correct FEN output
 
     private Board(final Builder builder) {
         this.gameBoard = createGameBoard(builder);
-        this.whitePieces = calculateActivePieces(this.gameBoard, Alliance.WHITE);
-        this.blackPieces = calculateActivePieces(this.gameBoard, Alliance.BLACK);
+        // Collect active pieces directly from the builder config — no tile scan needed.
+        this.whitePieces = collectPieces(builder, Alliance.WHITE);
+        this.blackPieces = collectPieces(builder, Alliance.BLACK);
 
         this.enPassantPawn = builder.enPassantPawn;
+        this.halfMoveClock = builder.halfMoveClock;
 
         final Collection<Move> whiteStandardLegalMoves = calculateLegalMoves(this.whitePieces);
         final Collection<Move> blackStandardLegalMoves = calculateLegalMoves(this.blackPieces);
@@ -43,14 +46,21 @@ public class Board {
         this.currentPlayer = builder.nextMoveMaker.choosePlayer(this.whitePlayer, this.blackPlayer);
     }
 
-    private static List<Tile> createGameBoard(final Builder builder) {
+    private static Tile[] createGameBoard(final Builder builder) {
         final Tile[] tiles = new Tile[BoardUtils.NUM_TILES];
-
         for (int i = 0; i < BoardUtils.NUM_TILES; i++) {
             tiles[i] = Tile.createTile(i, builder.boardConfig[i]);
         }
+        return tiles;
+    }
 
-        return ImmutableList.copyOf(tiles);
+    /** Collect active pieces for one alliance directly from the builder's piece array. */
+    private static Collection<Piece> collectPieces(final Builder builder, final Alliance alliance) {
+        final List<Piece> pieces = new ArrayList<>(16);
+        for (final Piece p : builder.boardConfig) {
+            if (p != null && p.getPieceAlliance() == alliance) pieces.add(p);
+        }
+        return ImmutableList.copyOf(pieces);
     }
 
     public static Board createStandardBoard() {
@@ -171,6 +181,12 @@ public class Board {
         final Alliance sideToMove = fields[1].equals("b") ? Alliance.BLACK : Alliance.WHITE;
         builder.setMoveMaker(sideToMove);
 
+        // ── Field 5: half-move clock ──────────────────────────────────
+        if (fields.length >= 5) {
+            try { builder.setHalfMoveClock(Integer.parseInt(fields[4])); }
+            catch (NumberFormatException ignored) { /* leave at 0 */ }
+        }
+
         // ── Field 4: en-passant target square ─────────────────────────
         if (!epField.equals("-") && Pattern.matches("[a-h][36]", epField)) {
             final int epFile = epField.charAt(0) - 'a';
@@ -204,7 +220,7 @@ public class Board {
         for (int rank = 0; rank < 8; rank++) {
             int empty = 0;
             for (int file = 0; file < 8; file++) {
-                final Tile tile = gameBoard.get(rank * 8 + file);
+                final Tile tile = gameBoard[rank * 8 + file];
                 if (tile.isTileOccupied()) {
                     if (empty > 0) {
                         sb.append(empty);
@@ -251,7 +267,7 @@ public class Board {
         } else {
             sb.append('-');
         }
-        sb.append(" 0 1");
+        sb.append(' ').append(halfMoveClock).append(" 1");
         return sb.toString();
     }
 
@@ -259,7 +275,7 @@ public class Board {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < BoardUtils.NUM_TILES; i++) {
-            sb.append(String.format("%3s", gameBoard.get(i)));
+            sb.append(String.format("%3s", gameBoard[i]));
             if ((i + 1) % BoardUtils.NUM_TILES_PER_ROW == 0) sb.append("\n");
         }
         return sb.toString();
@@ -301,24 +317,12 @@ public class Board {
         return ImmutableList.copyOf(legalMoves);
     }
 
-    private Collection<Piece> calculateActivePieces(final List<Tile> gameBoard, final Alliance alliance) {
-        final List<Piece> activePieces = new ArrayList<>();
-
-        for (final Tile tile : gameBoard) {
-            if (tile.isTileOccupied()) {
-                final Piece piece = tile.getPiece();
-
-                if (piece.getPieceAlliance() == alliance) {
-                    activePieces.add(piece);
-                }
-            }
-        }
-
-        return ImmutableList.copyOf(activePieces);
+    public Tile getTile(final int tileCoordinate) {
+        return gameBoard[tileCoordinate];
     }
 
-    public Tile getTile(final int tileCoordinate) {
-        return gameBoard.get(tileCoordinate);
+    public int getHalfMoveClock() {
+        return halfMoveClock;
     }
 
     public static class Builder {
@@ -328,6 +332,7 @@ public class Board {
         final Piece[] boardConfig = new Piece[BoardUtils.NUM_TILES];
         Pawn enPassantPawn;
         Alliance castledAlliance; // set by CastleMove.execute() to mark which side just castled
+        int halfMoveClock = 0;
         private Alliance nextMoveMaker;
 
         public Builder setPiece(final Piece piece) {
@@ -337,6 +342,10 @@ public class Board {
 
         public void setMoveMaker(final Alliance nextMoveMaker) {
             this.nextMoveMaker = nextMoveMaker;
+        }
+
+        public void setHalfMoveClock(final int halfMoveClock) {
+            this.halfMoveClock = halfMoveClock;
         }
 
         public Board build() {

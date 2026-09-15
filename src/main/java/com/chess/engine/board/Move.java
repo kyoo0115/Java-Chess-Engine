@@ -96,6 +96,10 @@ public abstract class Move {
 
         builder.setPiece(this.movedPiece.movePiece(this));
         builder.setMoveMaker(this.board.getCurrentPlayer().getOpponent().getAlliance());
+        // Half-move clock: reset on pawn move or capture, else increment
+        builder.setHalfMoveClock(
+                (isAttack() || movedPiece.getPieceType() == Piece.PieceType.PAWN)
+                        ? 0 : this.board.getHalfMoveClock() + 1);
 
         return builder.build();
     }
@@ -232,6 +236,7 @@ public abstract class Move {
 
             builder.setPiece(this.movedPiece.movePiece(this));
             builder.setMoveMaker(this.board.getCurrentPlayer().getOpponent().getAlliance());
+            builder.setHalfMoveClock(0); // capture always resets
 
             return builder.build();
         }
@@ -311,6 +316,7 @@ public abstract class Move {
             final Piece pieceToPlace = (promotionChoice != null) ? promotionChoice : this.promotedPawn.getPromotionPiece();
             builder.setPiece(pieceToPlace.movePiece(this));
             builder.setMoveMaker(pawnMovedBoard.getCurrentPlayer().getAlliance());
+            builder.setHalfMoveClock(0);
 
             return builder.build();
         }
@@ -327,7 +333,10 @@ public abstract class Move {
 
         @Override
         public String toString() {
-            final String suffix = (promotionChoice != null) ? "=" + promotionChoice : "=Q";
+            // Use the single-letter PieceType abbreviation (P/N/B/R/Q/K) for the suffix
+            final String suffix = (promotionChoice != null)
+                    ? "=" + promotionChoice.getPieceType().toString()
+                    : "=Q";
             return decorateMove.toString() + suffix;
         }
     }
@@ -356,6 +365,7 @@ public abstract class Move {
             builder.setPiece(movedPawn);
             builder.setEnPassantPawn(movedPawn);
             builder.setMoveMaker(this.board.getCurrentPlayer().getOpponent().getAlliance());
+            builder.setHalfMoveClock(0); // pawn move always resets
 
             return builder.build();
         }
@@ -409,6 +419,7 @@ public abstract class Move {
             builder.setPiece(new Rook(this.castleRook.getPieceAlliance(), this.castleRookDestination, false));
             builder.castledAlliance = this.board.getCurrentPlayer().getAlliance();
             builder.setMoveMaker(this.board.getCurrentPlayer().getOpponent().getAlliance());
+            builder.setHalfMoveClock(this.board.getHalfMoveClock() + 1); // king move, not a capture
             return builder.build();
 
         }
@@ -488,7 +499,7 @@ public abstract class Move {
 
         @Override
         public Board execute() {
-            throw new RuntimeException("cannot execute null move!");
+            throw new IllegalStateException("cannot execute null move!");
         }
 
         @Override

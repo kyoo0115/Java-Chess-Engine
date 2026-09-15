@@ -197,7 +197,12 @@ public abstract class Player {
     }
 
     protected boolean hasEscapeMoves() {
-        return legalMoves.stream().anyMatch(move -> makeMove(move).getMoveStatus().isDone());
+        for (final Move move : legalMoves) {
+            final Board after = move.execute();
+            final int kingSquare = after.getCurrentPlayer().getOpponent().getPlayerKing().getPiecePosition();
+            if (!isSquareAttackedBy(after, kingSquare, after.getCurrentPlayer().getAlliance())) return true;
+        }
+        return false;
     }
 
     public MoveTransition makeMove(final Move move) {
