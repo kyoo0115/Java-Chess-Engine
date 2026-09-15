@@ -272,7 +272,7 @@ class PerftTest {
         // D4: nodes=15833292
         // https://www.chessprogramming.org/Perft_Results#Position_4
         final PerftResult r = detail(Board.fromFEN(POS4), 5);
-        assertAll("pos4 depth 4",
+        assertAll("pos4 depth 5",
                 () -> assertEquals(15833292, r.nodes(), "nodes"));
     }
 

@@ -26,6 +26,10 @@ public class ClockPanel extends JPanel {
     private int blackSeconds = 600;
     private boolean whiteActive = false;
     private boolean enabled = true;
+    /** Wall-clock time (ms) at which the current player's turn started, or -1 if not running. */
+    private long turnStartMs = -1;
+    /** Seconds remaining for the active player at the moment their turn started. */
+    private int activeSecondsAtTurnStart = 0;
 
     public ClockPanel(final Runnable onWhiteTimeout, final Runnable onBlackTimeout) {
         super(new GridLayout(2, 1, 0, 10));
@@ -176,6 +180,8 @@ public class ClockPanel extends JPanel {
         whiteSeconds = secs;
         blackSeconds = secs;
         whiteActive = false;
+        turnStartMs = -1;
+        activeSecondsAtTurnStart = 0;
         whiteTakenPanel.clear();
         blackTakenPanel.clear();
         updateLabels();
@@ -188,21 +194,31 @@ public class ClockPanel extends JPanel {
 
     public void onMoveMade(final com.chess.engine.Alliance nowToMove) {
         if (!enabled) return;
+        // Commit any elapsed time from the previous turn before switching sides
+        commitElapsed();
         whiteActive = nowToMove.isWhite();
+        activeSecondsAtTurnStart = whiteActive ? whiteSeconds : blackSeconds;
+        turnStartMs = System.currentTimeMillis();
         if (!ticker.isRunning()) ticker.start();
         updateLabels();
         repaint();
     }
 
     public void stop() {
+        commitElapsed();
+        turnStartMs = -1;
         ticker.stop();
         repaint();
     }
 
     public void pause() {
         if (ticker.isRunning()) {
+            commitElapsed();
+            turnStartMs = -1;
             ticker.stop();
         } else if (enabled) {
+            activeSecondsAtTurnStart = whiteActive ? whiteSeconds : blackSeconds;
+            turnStartMs = System.currentTimeMillis();
             ticker.start();
         }
         repaint();
@@ -212,25 +228,29 @@ public class ClockPanel extends JPanel {
         return ticker.isRunning();
     }
 
-    private void tick() {
+    /** Saves elapsed wall-clock seconds back into the active player's counter. */
+    private void commitElapsed() {
+        if (turnStartMs < 0) return;
+        final int elapsed = (int) ((System.currentTimeMillis() - turnStartMs) / 1000);
         if (whiteActive) {
-            if (whiteSeconds > 0) {
-                whiteSeconds--;
-                updateLabels();
-                if (whiteSeconds == 0) {
-                    ticker.stop();
-                    onWhiteTimeout.run();
-                }
-            }
+            whiteSeconds = Math.max(0, activeSecondsAtTurnStart - elapsed);
         } else {
-            if (blackSeconds > 0) {
-                blackSeconds--;
-                updateLabels();
-                if (blackSeconds == 0) {
-                    ticker.stop();
-                    onBlackTimeout.run();
-                }
-            }
+            blackSeconds = Math.max(0, activeSecondsAtTurnStart - elapsed);
+        }
+    }
+
+    private void tick() {
+        if (turnStartMs < 0) return;
+        commitElapsed();
+        updateLabels();
+        if (whiteActive && whiteSeconds == 0) {
+            ticker.stop();
+            turnStartMs = -1;
+            onWhiteTimeout.run();
+        } else if (!whiteActive && blackSeconds == 0) {
+            ticker.stop();
+            turnStartMs = -1;
+            onBlackTimeout.run();
         }
     }
 

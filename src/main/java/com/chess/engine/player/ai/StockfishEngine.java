@@ -50,6 +50,7 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
     private final Process process;
     private final BufferedReader reader;
     private final BufferedWriter writer;
+    private final Thread shutdownHook;
     /**
      * Set to true by {@link #close()} so {@link #execute} knows not to log pipe errors.
      */
@@ -87,10 +88,12 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
 
         // Shutdown hook — kills the process if the JVM exits without close() being
         // called (e.g. IDE stop button, uncaught exception in main thread).
+        // Stored so close() can deregister it and avoid hook accumulation across restarts.
         final Process proc = this.process;
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        this.shutdownHook = new Thread(() -> {
             if (proc.isAlive()) proc.destroyForcibly();
-        }, "stockfish-shutdown-hook"));
+        }, "stockfish-shutdown-hook");
+        Runtime.getRuntime().addShutdownHook(this.shutdownHook);
     }
 
     // ── Move translation ──────────────────────────────────────────────────────
@@ -241,6 +244,13 @@ public final class StockfishEngine implements MoveStrategy, Closeable {
             process.waitFor(2, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+        // Deregister the hook now that we have cleanly shut down; prevents accumulation
+        // when the engine is restarted multiple times within the same JVM session.
+        try {
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        } catch (IllegalStateException ignored) {
+            // JVM is already shutting down — the hook is running or done, nothing to do
         }
     }
 
