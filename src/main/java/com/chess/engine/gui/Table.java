@@ -65,7 +65,6 @@ public class Table implements TableContext {
     private boolean engineVsEnginePaused = false;
     private StockfishEngine stockfishEngine = null;
     private AIThinkTank currentThinkTank = null;
-    private int halfMoveClock = 0;
     private Tile sourceTile;
     private Piece humanMovedPiece;
     private BufferedImage dragImage;
@@ -279,9 +278,28 @@ public class Table implements TableContext {
 
     private void onFirstMoveClicked() {
         if (moveLog.size() == 0) return;
-        while (moveLog.size() > 0) {
-            undoLastMove();
-        }
+        moveLog.clear();
+        chessBoard = Board.createStandardBoard();
+        lastMoveSource = -1;
+        lastMoveDest = -1;
+        arrowSource = -1;
+        arrowDest = -1;
+        sourceTile = null;
+        humanMovedPiece = null;
+        dragImage = null;
+        dragPoint = null;
+        dragSourceTileId = -1;
+        hoverTileId = -1;
+        positionHistory.clear();
+        closeEngine();
+        SwingUtilities.invokeLater(() -> {
+            historyAndControlsPanel.clearHistory();
+            historyAndControlsPanel.redo(chessBoard, moveLog);
+            clockPanel.redoTakenPieces(moveLog);
+            boardPanel.drawBoard(chessBoard);
+            boardContainer.repaint();
+            updateStatus();
+        });
     }
 
     @Override
@@ -734,12 +752,8 @@ public class Table implements TableContext {
      * @param move the move that was just played (used to detect pawn moves / captures)
      */
     private void recordPosition(final Move move) {
-        final boolean isPawnMove = move.getMovedPiece().getPieceType() == Piece.PieceType.PAWN;
-        if (move.isAttack() || isPawnMove) {
-            halfMoveClock = 0;
+        if (move.isAttack() || move.getMovedPiece().getPieceType() == Piece.PieceType.PAWN) {
             positionHistory.clear(); // captures/pawn moves make earlier positions unreachable
-        } else {
-            halfMoveClock++;
         }
         // Key = first 4 FEN fields: placement + side + castling + ep
         final String fen = chessBoard.toFEN();
@@ -763,7 +777,7 @@ public class Table implements TableContext {
         if (gameOver) return;
         final boolean mate = chessBoard.getCurrentPlayer().isCheckMate();
         final boolean stale = chessBoard.getCurrentPlayer().isStaleMate();
-        final boolean fiftyMove = halfMoveClock >= 100; // 100 half-moves = 50 full moves
+        final boolean fiftyMove = chessBoard.getHalfMoveClock() >= 100; // 100 half-moves = 50 full moves
         final String fen = chessBoard.toFEN();
         final String posKey = fen.substring(0, fen.lastIndexOf(' ', fen.lastIndexOf(' ') - 1));
         final boolean threefold = positionHistory.getOrDefault(posKey, 0) >= 3;
@@ -832,7 +846,6 @@ public class Table implements TableContext {
         hoverTileId = -1;
         gameOver = false;
         positionHistory.clear();
-        halfMoveClock = 0;
         closeEngine();
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.clearHistory();
@@ -867,7 +880,6 @@ public class Table implements TableContext {
         gameOver = false;
         engineVsEnginePaused = false;
         positionHistory.clear();
-        halfMoveClock = 0;
         closeEngine();
         SwingUtilities.invokeLater(() -> {
             historyAndControlsPanel.clearHistory();
@@ -900,7 +912,6 @@ public class Table implements TableContext {
             gameOver = false;
             engineVsEnginePaused = false;
             positionHistory.clear();
-            halfMoveClock = 0;
             closeEngine();
             boardPanel.clearAnnotations();
             SwingUtilities.invokeLater(() -> {
@@ -977,7 +988,6 @@ public class Table implements TableContext {
         gameOver = false;
         engineVsEnginePaused = false;
         positionHistory.clear();
-        halfMoveClock = 0;
         closeEngine();
         boardPanel.clearAnnotations();
         SwingUtilities.invokeLater(() -> {
@@ -1007,7 +1017,6 @@ public class Table implements TableContext {
         gameOver = false;
         engineVsEnginePaused = false;
         positionHistory.clear();
-        halfMoveClock = 0;
         closeEngine();
         clockPanel.reset(gameSetup.isClockEnabled(), gameSetup.getClockMinutes());
         SwingUtilities.invokeLater(() -> {
